@@ -13,12 +13,11 @@ from ultralytics import YOLO
 # Step 2: Open app -> Click "Start Server" -> Check IP address displayed on phone
 # Step 3: Put that URL below:
 #   - For IP Webcam app: "http://<PHONE_IP>:8080/video"  (e.g., "http://192.168.43.1:8080/video")
-#   - For DroidCam app:   "http://<PHONE_IP>:4747/video"
 #   - To revert to Laptop Webcam: 0
-CAMERA_SOURCE = "http://192.168.43.1:8080/video"
+CAMERA_SOURCE = "http://192.168.43.1:8080/video"  # Set to your phone's IP Webcam stream or 0 for laptop webcam
 
 # --- 🌐 ESP32 WI-FI CONFIGURATION ---
-ESP32_IP = "http://192.168.43.125"  # Put your ESP32's IP address
+ESP32_IP = "http://192.168.43.125"  # Put your ESP32's IP address (printed on Serial Monitor)
 
 # --- ⏱️ TIMING & DETECTION SETTINGS ---
 SCAN_INTERVAL_SEC = 10.0   # Scans 1 frame every 10 seconds for power efficiency

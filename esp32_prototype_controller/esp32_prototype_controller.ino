@@ -20,9 +20,9 @@
 #include <WiFi.h>
 #include <WebServer.h>
 
-// --- 🌐 WI-FI CREDENTIALS (Unga Hotspot / Wi-Fi Details Podunga) ---
-const char* ssid     = "YOUR_HOTSPOT_NAME";
-const char* password = "YOUR_HOTSPOT_PASSWORD";
+// --- 🌐 WI-FI CREDENTIALS (Enter your Mobile Hotspot / Wi-Fi details here) ---
+const char* ssid     = "YOUR_HOTSPOT_NAME";      // e.g. "MyHotspot"
+const char* password = "YOUR_HOTSPOT_PASSWORD";  // e.g. "12345678"
 
 // --- 🔌 GPIO PIN DEFINITIONS ---
 const int PIN_LIGHT      = 25;  // Relay Channel 1 -> 5V LED Strip
@@ -142,7 +142,18 @@ void setup() {
   digitalWrite(PIN_STATUS_LED, LOW);
 
   // Connect to Wi-Fi
-  Serial.printf("[WIFI] Connecting to network: %s\n", ssid);
+  Serial.printf("[WIFI] Scanning nearby 2.4 GHz networks...\n");
+  int n = WiFi.scanNetworks();
+  if (n == 0) {
+    Serial.println("[WIFI] No 2.4 GHz networks found.");
+  } else {
+    Serial.printf("[WIFI] Found %d networks:\n", n);
+    for (int i = 0; i < n; ++i) {
+      Serial.printf("  -> '%s' (Signal: %d dBm)\n", WiFi.SSID(i).c_str(), WiFi.RSSI(i));
+    }
+  }
+
+  Serial.printf("\n[WIFI] Connecting to network: '%s'\n", ssid);
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
