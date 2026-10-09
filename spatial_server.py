@@ -1,4 +1,5 @@
 import cv2
+import sys
 import time
 import math
 import requests
@@ -8,13 +9,17 @@ from ultralytics import YOLO
 # PROJECT: Spatial AI Power Automation (Mobile Camera + 10s ECO Scanner)
 # =================================================================================
 
-# --- 📱 MOBILE CAMERA CONFIGURATION ---
-# Step 1: Install "IP Webcam" app from Play Store (or "DroidCam")
-# Step 2: Open app -> Click "Start Server" -> Check IP address displayed on phone
-# Step 3: Put that URL below:
-#   - For IP Webcam app: "http://<PHONE_IP>:8080/video"  (e.g., "http://192.168.43.1:8080/video")
-#   - To revert to Laptop Webcam: 0
-CAMERA_SOURCE = "http://192.168.43.1:8080/video"  # Set to your phone's IP Webcam stream or 0 for laptop webcam
+# --- 📷 DUAL CAMERA CONFIGURATION (Phone Link / Webcam & Wi-Fi IP Stream) ---
+# Supports:
+#   1. Windows Phone Link / Local Webcam: 0 (or 1)
+#   2. Wi-Fi IP Camera streams: "http://<PHONE_IP>:8080/video"
+#   3. Automatic fallback: If IP stream is unreachable, automatically falls back to Phone Link / Webcam
+CAMERA_SOURCE = 0  # Default: 0 for Phone Link (Connected Phone Camera) or Laptop Webcam
+IP_CAMERA_URL = "http://10.105.4.198:8080/video"  # Optional Wi-Fi IP stream (e.g. IP Webcam app)
+
+# Allow command-line override (e.g., python spatial_server.py http://192.168.43.1:8080/video)
+if len(sys.argv) > 1:
+    CAMERA_SOURCE = sys.argv[1]
 
 # --- 🌐 ESP32 WI-FI CONFIGURATION ---
 ESP32_IP = "http://192.168.43.125"  # Put your ESP32's IP address (printed on Serial Monitor)
@@ -34,16 +39,49 @@ APPLIANCE_ZONES = {
     "light": {"pos": (740, 260), "name": "TUBE LIGHT",     "active": False}
 }
 
-def connect_camera(source):
-    print(f"[CAMERA] Connecting to stream: {source}...")
+def connect_camera(source=0):
+    """
+    Connects to camera. Supports both:
+      - Windows Phone Link / Built-in Webcam (device 0 or 1)
+      - Wi-Fi IP Camera streams (HTTP / RTSP)
+    With automatic fallback if an IP stream is unreachable!
+    """
+    is_device_index = isinstance(source, int) or (isinstance(source, str) and str(source).isdigit())
+
+    if is_device_index:
+        idx = int(source)
+        print(f"[CAMERA] Connecting to Device {idx} (Phone Link / Local Webcam)...")
+        cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
+        if not cap.isOpened():
+            cap = cv2.VideoCapture(idx)
+
+        if cap.isOpened():
+            print(f"[CAMERA SUCCESS] Connected to Device {idx} (Phone Link / Local Webcam)!")
+            return cap
+        else:
+            print(f"[CAMERA WARNING] Unable to open Device {idx}!")
+            return None
+
+    # If source is an IP stream URL
+    print(f"[CAMERA] Connecting to IP stream: {source}...")
     cap = cv2.VideoCapture(source)
-    # Set buffer size to 1 to reduce stream lag on Wi-Fi
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
     if not cap.isOpened():
-        print(f"[CAMERA WARNING] Unable to open stream from {source}!")
-        print("[TIP] Ensure phone & laptop are on the SAME Wi-Fi / Hotspot network.")
-    else:
-        print("[CAMERA SUCCESS] Connected to mobile camera feed successfully!")
+        print(f"[CAMERA WARNING] Unable to reach IP stream at {source}!")
+        print("[CAMERA FALLBACK] Automatically switching to Phone Link / Local Webcam (Device 0)...")
+        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+        if not cap.isOpened():
+            cap = cv2.VideoCapture(0)
+
+        if cap.isOpened():
+            print("[CAMERA SUCCESS] Fallback connected to Device 0 (Phone Link / Webcam)!")
+            return cap
+        else:
+            print("[CAMERA ERROR] Both IP stream and local camera failed to open.")
+            return None
+
+    print("[CAMERA SUCCESS] Connected to Wi-Fi IP stream successfully!")
     return cap
 
 cap = connect_camera(CAMERA_SOURCE)
@@ -65,11 +103,12 @@ def send_esp32_command(appliance_states):
 print("[AI SERVER] Started! Press 'q', 'Q', 'ESC', or close window to exit.")
 
 while True:
-    ret, frame = cap.read()
+    ret, frame = cap.read() if cap is not None else (False, None)
     if not ret or frame is None:
         print("[CAMERA] Stream paused or reconnecting... Retrying in 1s")
         time.sleep(1)
-        cap.release()
+        if cap is not None:
+            cap.release()
         cap = connect_camera(CAMERA_SOURCE)
         continue
 
@@ -166,6 +205,7 @@ while True:
         print("\n[USER EXIT] Window closed by user.")
         break
 
-cap.release()
+if cap is not None:
+    cap.release()
 cv2.destroyAllWindows()
 print("[SHUTDOWN] System closed cleanly.")
