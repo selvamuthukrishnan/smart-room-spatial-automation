@@ -5,25 +5,49 @@ import requests
 from ultralytics import YOLO
 
 # =================================================================================
-# PROJECT: Spatial AI Power Automation (10-Sec Power Efficient Scanner)
+# PROJECT: Spatial AI Power Automation (Mobile Camera + 10s ECO Scanner)
 # =================================================================================
 
-ESP32_IP = "http://192.168.1.50"
-SCAN_INTERVAL_SEC = 10.0   # Exactly 1 frame analyzed every 10 seconds
-PROXIMITY_RADIUS = 280     # Proximity radius in pixels
+# --- 📱 MOBILE CAMERA CONFIGURATION ---
+# Step 1: Install "IP Webcam" app from Play Store (or "DroidCam")
+# Step 2: Open app -> Click "Start Server" -> Check IP address displayed on phone
+# Step 3: Put that URL below:
+#   - For IP Webcam app: "http://<PHONE_IP>:8080/video"  (e.g., "http://192.168.43.1:8080/video")
+#   - For DroidCam app:   "http://<PHONE_IP>:4747/video"
+#   - To revert to Laptop Webcam: 0
+CAMERA_SOURCE = "http://192.168.43.1:8080/video"
+
+# --- 🌐 ESP32 WI-FI CONFIGURATION ---
+ESP32_IP = "http://192.168.43.125"  # Put your ESP32's IP address
+
+# --- ⏱️ TIMING & DETECTION SETTINGS ---
+SCAN_INTERVAL_SEC = 10.0   # Scans 1 frame every 10 seconds for power efficiency
+PROXIMITY_RADIUS = 280     # Proximity radius in pixels around each appliance
 
 print("[AI SERVER] Initializing YOLO-World Model...")
 model = YOLO("yolov8s-world.pt")
 model.set_classes(["person", "ceiling fan", "tube light"])
 
-# Predefined Ceiling Appliance Zones
+# Predefined Ceiling Appliance Zones (Mapped from your camera view)
 APPLIANCE_ZONES = {
     "fan_1": {"pos": (330, 250), "name": "FAN 1 (LEFT)",   "active": False},
     "fan_2": {"pos": (640, 230), "name": "FAN 2 (CENTER)", "active": False},
     "light": {"pos": (740, 260), "name": "TUBE LIGHT",     "active": False}
 }
 
-cap = cv2.VideoCapture(0)
+def connect_camera(source):
+    print(f"[CAMERA] Connecting to stream: {source}...")
+    cap = cv2.VideoCapture(source)
+    # Set buffer size to 1 to reduce stream lag on Wi-Fi
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    if not cap.isOpened():
+        print(f"[CAMERA WARNING] Unable to open stream from {source}!")
+        print("[TIP] Ensure phone & laptop are on the SAME Wi-Fi / Hotspot network.")
+    else:
+        print("[CAMERA SUCCESS] Connected to mobile camera feed successfully!")
+    return cap
+
+cap = connect_camera(CAMERA_SOURCE)
 window_name = "Spatial AI Power Automation Monitor"
 cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
 
@@ -43,8 +67,11 @@ print("[AI SERVER] Started! Press 'q', 'Q', 'ESC', or close window to exit.")
 
 while True:
     ret, frame = cap.read()
-    if not ret:
-        time.sleep(0.1)
+    if not ret or frame is None:
+        print("[CAMERA] Stream paused or reconnecting... Retrying in 1s")
+        time.sleep(1)
+        cap.release()
+        cap = connect_camera(CAMERA_SOURCE)
         continue
 
     current_time = time.time()
@@ -55,7 +82,7 @@ while True:
     # ⚡ 10-SECOND AI SCAN TRIGGER (Runs ONLY once every 10 seconds)
     # =========================================================================
     if time_since_last_scan >= SCAN_INTERVAL_SEC:
-        print(f"\n[AI SCAN TRIGGER] Scanning frame at {time.strftime('%H:%M:%S')}...")
+        print(f"\n[AI SCAN TRIGGER] Scanning frame from Mobile Camera at {time.strftime('%H:%M:%S')}...")
         last_scan_time = current_time
 
         # Run AI Model
@@ -93,10 +120,10 @@ while True:
 
         # Sync states to ESP32
         send_esp32_command(APPLIANCE_ZONES)
-        print(f"[STATUS] Scan complete. Sleeping AI for {int(SCAN_INTERVAL_SEC)} seconds...")
+        print(f"[STATUS] Scan complete. Sleeping AI for {int(SCAN_INTERVAL_SEC)}s...")
 
     # =========================================================================
-    # 🎨 RENDER VISUALS (Uses cached detection during 10-sec sleep)
+    # 🎨 RENDER VISUALS (Cached detections during 10-sec sleep)
     # =========================================================================
     # 1. Draw Humans
     for (hx, hy, (x1, y1, x2, y2), conf) in last_detected_humans:
@@ -120,23 +147,22 @@ while True:
         cv2.putText(frame, status_txt, (zx - 60, zy - 45),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 2)
 
-    # 4. Display 10-Second Countdown & Power Efficiency Banner
+    # 4. Display Status Banners
     banner_bg = (30, 30, 30)
-    cv2.rectangle(frame, (10, 10), (450, 50), banner_bg, -1)
-    status_msg = f"Next AI Scan: {remaining_time:.1f}s | Mode: ECO"
+    cv2.rectangle(frame, (10, 10), (480, 50), banner_bg, -1)
+    status_msg = f"Mobile Cam | Next Scan: {remaining_time:.1f}s"
     cv2.putText(frame, status_msg, (20, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 255), 2)
 
     cv2.imshow(window_name, frame)
 
     # =========================================================================
-    # 🚪 SOLID QUIT LOGIC ('q', 'Q', 'ESC', or Window Close 'X')
+    # 🚪 SOLID QUIT LOGIC
     # =========================================================================
     key = cv2.waitKey(20) & 0xFF
     if key in [ord('q'), ord('Q'), 27]: # 27 = ESC key
         print("\n[USER EXIT] Quit requested via keyboard.")
         break
 
-    # If user clicked the window's top-right 'X' button
     if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
         print("\n[USER EXIT] Window closed by user.")
         break
