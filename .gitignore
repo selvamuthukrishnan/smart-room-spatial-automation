@@ -1,0 +1,22 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Large AI model weight files
+models/
+*.pt
+*.pth
+*.bin
+*.onnx
+*.engine
+
+# Virtual Environments
+venv/
+env/
+.venv/
+
+# Environment Variables & OS artifacts
+.env
+.DS_Store
+Thumbs.db
