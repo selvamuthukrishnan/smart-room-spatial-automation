@@ -15,6 +15,6 @@ echo Activating virtual environment...
 call .venv\Scripts\activate.bat
 
 echo Starting spatial_server.py...
-python spatial_server.py %*
+".venv\Scripts\python.exe" -u spatial_server.py %*
 
 pause

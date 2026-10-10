@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spatial AI Smart Room - Digital Twin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes pulse-subtle {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    .pulse-live { animation: pulse-subtle 2s infinite ease-in-out; }
+    .unit-active {
+      border-color: #22c55e !important;
+      background: rgba(34, 197, 94, 0.08) !important;
+      box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);
+    }
+    .unit-idle {
+      border-color: #334155;
+      background: #1e293b;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 antialiased min-h-screen p-4 md:p-6 font-sans">
+
+  <!-- TOP HEADER & CONTROLS -->
+  <header class="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between pb-6 border-b border-slate-800 gap-4">
+    <div>
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">🏠</span>
+        <h1 class="text-xl md:text-2xl font-bold tracking-tight text-white">Spatial AI Smart Room Automation</h1>
+        <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 pulse-live">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> LIVE SYSTEM
+        </span>
+      </div>
+      <p class="text-sm text-slate-400 mt-1">
+        10-Zone Micro-Grid Digital Twin &bull; 2-Channel Hardware Actuator &bull; YOLO-World 10s Eco-Scanner
+      </p>
+    </div>
+
+    <!-- HARDWARE CONNECTION BAR -->
+    <div class="flex items-center gap-3 bg-slate-900 p-2 rounded-xl border border-slate-800 text-xs">
+      <div class="flex items-center gap-2 px-2">
+        <span id="hw-status-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+        <span class="text-slate-400">ESP32 IP:</span>
+        <input id="esp32-ip-input" type="text" value="http://192.168.43.125" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 font-mono text-emerald-300 focus:outline-none focus:border-emerald-500 w-36">
+      </div>
+      <button onclick="pingEsp32()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition cursor-pointer">
+        Ping
+      </button>
+      <button id="sim-btn" onclick="toggleSimulation()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-medium transition cursor-pointer">
+        Demo Auto-Sim
+      </button>
+    </div>
+  </header>
+
+  <!-- KEY METRICS BANNER -->
+  <section class="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 my-6">
+    <!-- Metric 1: Active Workstations -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+      <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Active Workstations</span>
+      <div class="flex items-baseline justify-between mt-2">
+        <span id="metric-active-units" class="text-3xl font-extrabold text-white">2</span>
+        <span class="text-xs text-slate-400 font-semibold">/ 10 Units</span>
+      </div>
+      <div class="w-full bg-slate-800 rounded-full h-1.5 mt-3 overflow-hidden">
+        <div id="bar-active-units" class="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" style="width: 20%;"></div>
+      </div>
+    </div>
+
+    <!-- Metric 2: Live Energy Saved -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+      <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Live Energy Saved</span>
+      <div class="flex items-baseline justify-between mt-2">
+        <span id="metric-energy-saved" class="text-3xl font-extrabold text-emerald-400">80%</span>
+        <span class="text-xs text-emerald-400/80 font-semibold">&bull; Eco Mode</span>
+      </div>
+      <p class="text-xs text-slate-400 mt-2">Compared to continuous whole-room power</p>
+    </div>
+
+    <!-- Metric 3: Power Consumption -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+      <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Current Power Load</span>
+      <div class="flex items-baseline justify-between mt-2">
+        <span id="metric-power-watts" class="text-3xl font-extrabold text-white">180 W</span>
+        <span class="text-xs text-slate-400 font-semibold">vs 900W Max</span>
+      </div>
+      <p class="text-xs text-slate-400 mt-2">720 Watts currently conserved</p>
+    </div>
+
+    <!-- Metric 4: AI Scan Heartbeat -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+      <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">YOLO-World Scanner</span>
+      <div class="flex items-baseline justify-between mt-2">
+        <span id="metric-scan-timer" class="text-3xl font-extrabold text-sky-400">7.2s</span>
+        <span class="text-xs text-sky-400/80 font-semibold">10s Interval</span>
+      </div>
+      <p class="text-xs text-slate-400 mt-2">Open-vocabulary vision scan cadence</p>
+    </div>
+  </section>
+
+  <!-- MAIN SECTION: 10 WORKSTATION GRID & ROOM MAP -->
+  <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- 10 WORKSTATION UNITS GRID -->
+    <div class="lg:col-span-2 space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-base font-semibold tracking-tight text-white flex items-center gap-2">
+          <span>🖥️</span> Workstation Units (Fan + Light Pairs)
+        </h2>
+        <span class="text-xs text-slate-400">Click any card to toggle occupancy</span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5" id="units-container">
+        <!-- Javascript populates 10 cards here -->
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: HARDWARE CONTROLS & DIGITAL TWIN FLOOR PLAN -->
+    <div class="space-y-6">
+
+      <!-- PHYSICAL TESTBED CONTROLS -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <h3 class="font-semibold text-sm text-white flex items-center gap-2">
+            <span>🔌</span> Physical 2-Channel Relay Testbed
+          </h3>
+          <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            Desk Hardware
+          </span>
+        </div>
+
+        <div class="space-y-3.5 mt-4">
+          <!-- Unit 1 Physical -->
+          <div class="flex items-center justify-between p-3 rounded-lg bg-slate-950 border border-slate-800">
+            <div>
+              <div class="font-medium text-sm text-white">Unit 01 (Relay Channel 1)</div>
+              <div class="text-xs text-slate-400">GPIO 25 &bull; 5V Light + Fan</div>
+            </div>
+            <button id="hw-toggle-1" onclick="togglePhysicalRelay(1)" class="px-4 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer bg-emerald-600 text-white">
+              FORCE ON
+            </button>
+          </div>
+
+          <!-- Unit 2 Physical -->
+          <div class="flex items-center justify-between p-3 rounded-lg bg-slate-950 border border-slate-800">
+            <div>
+              <div class="font-medium text-sm text-white">Unit 02 (Relay Channel 2)</div>
+              <div class="text-xs text-slate-400">GPIO 26 &bull; 5V Light + Fan</div>
+            </div>
+            <button id="hw-toggle-2" onclick="togglePhysicalRelay(2)" class="px-4 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer bg-slate-800 text-slate-400">
+              FORCE OFF
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+          <span>Safety Watchdog:</span>
+          <span class="font-mono text-emerald-400">35s Auto-Shutoff Active</span>
+        </div>
+      </div>
+
+      <!-- DIGITAL TWIN SPATIAL RADAR / ROOM FLOOR PLAN -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <h3 class="font-semibold text-sm text-white flex items-center gap-2">
+            <span>📐</span> Room Spatial Zone Layout
+          </h3>
+          <span class="text-xs text-slate-400">Camera FOV</span>
+        </div>
+
+        <!-- 2D Canvas / CSS Grid Visualizer -->
+        <div class="relative bg-slate-950 rounded-lg p-4 border border-slate-800 mt-4 aspect-video flex flex-col justify-between">
+          <!-- Camera Icon & FOV Lines -->
+          <div class="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-center">
+            <span class="text-sm">📷</span>
+            <span class="text-[10px] text-sky-400 font-mono">10s Camera</span>
+          </div>
+
+          <!-- Grid of 10 desks -->
+          <div class="grid grid-cols-5 gap-2 mt-8 mb-2">
+            <!-- Row 1 -->
+            <div id="radar-1" class="h-9 rounded border border-emerald-500/50 bg-emerald-500/10 flex items-center justify-center text-[10px] font-bold text-emerald-400">U1*</div>
+            <div id="radar-2" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U2*</div>
+            <div id="radar-3" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U3</div>
+            <div id="radar-4" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U4</div>
+            <div id="radar-5" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U5</div>
+            <!-- Row 2 -->
+            <div id="radar-6" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U6</div>
+            <div id="radar-7" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U7</div>
+            <div id="radar-8" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U8</div>
+            <div id="radar-9" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U9</div>
+            <div id="radar-10" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U10</div>
+          </div>
+
+          <div class="text-[10px] text-center text-slate-400 flex items-center justify-center gap-3">
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Active Zone</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-600"></span> Idle Zone</span>
+            <span class="text-amber-400 font-bold">* Physical</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    // State of all 10 Workstation Units
+    const UNITS = [
+      { id: 1, name: "Unit 01 (Front Left)", isPhysical: true, gpio: "GPIO 25", active: true },
+      { id: 2, name: "Unit 02 (Front Center)", isPhysical: true, gpio: "GPIO 26", active: false },
+      { id: 3, name: "Unit 03 (Front Right)", isPhysical: false, gpio: "Digital Twin", active: false },
+      { id: 4, name: "Unit 04 (Mid Left)", isPhysical: false, gpio: "Digital Twin", active: false },
+      { id: 5, name: "Unit 05 (Mid Center)", isPhysical: false, gpio: "Digital Twin", active: false },
+      { id: 6, name: "Unit 06 (Mid Right)", isPhysical: false, gpio: "Digital Twin", active: false },
+      { id: 7, name: "Unit 07 (Rear Left)", isPhysical: false, gpio: "Digital Twin", active: false },
+      { id: 8, name: "Unit 08 (Rear Center-L)", isPhysical: false, gpio: "Digital Twin", active: false },
+      { id: 9, name: "Unit 09 (Rear Center-R)", isPhysical: false, gpio: "Digital Twin", active: false },
+      { id: 10, name: "Unit 10 (Rear Right)", isPhysical: false, gpio: "Digital Twin", active: false }
+    ];
+
+    let simulationInterval = null;
+    let scanSecondsRemaining = 10.0;
+
+    // Render Workstation Cards
+    function renderUnits() {
+      const container = document.getElementById("units-container");
+      container.innerHTML = "";
+
+      UNITS.forEach(unit => {
+        const card = document.createElement("div");
+        card.className = `p-4 rounded-xl border transition-all duration-300 cursor-pointer ${unit.active ? 'unit-active' : 'unit-idle'}`;
+        card.onclick = () => toggleUnit(unit.id);
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-sm text-white">${unit.name}</span>
+              ${unit.isPhysical ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">PHYSICAL</span>' : '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400">VIRTUAL</span>'}
+            </div>
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${unit.active ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'}">
+              ${unit.active ? '● OCCUPIED' : '○ VACANT'}
+            </span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-700/50">
+            <!-- Appliance 1: Light -->
+            <div class="flex items-center gap-2 text-xs">
+              <span class="text-base">${unit.active ? '💡' : '🌑'}</span>
+              <div>
+                <div class="text-slate-400 text-[10px]">TUBE LIGHT</div>
+                <div class="font-semibold ${unit.active ? 'text-emerald-400' : 'text-slate-400'}">${unit.active ? 'ACTIVE (ON)' : 'OFF'}</div>
+              </div>
+            </div>
+
+            <!-- Appliance 2: Fan -->
+            <div class="flex items-center gap-2 text-xs">
+              <span class="text-base ${unit.active ? 'animate-spin' : ''}">🌀</span>
+              <div>
+                <div class="text-slate-400 text-[10px]">DESK FAN</div>
+                <div class="font-semibold ${unit.active ? 'text-emerald-400' : 'text-slate-400'}">${unit.active ? 'RUNNING (ON)' : 'OFF'}</div>
+              </div>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+
+        // Sync floor plan radar
+        const radarEl = document.getElementById(`radar-${unit.id}`);
+        if (radarEl) {
+          if (unit.active) {
+            radarEl.className = "h-9 rounded border border-emerald-500/60 bg-emerald-500/20 flex items-center justify-center text-[10px] font-bold text-emerald-400 shadow-sm";
+          } else {
+            radarEl.className = "h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400";
+          }
+        }
+      });
+
+      updateMetrics();
+      syncPhysicalButtons();
+    }
+
+    function toggleUnit(id) {
+      const unit = UNITS.find(u => u.id === id);
+      if (unit) {
+        unit.active = !unit.active;
+        renderUnits();
+
+        // If physical unit, dispatch HTTP command to ESP32!
+        if (unit.isPhysical) {
+          dispatchEsp32Hardware();
+        }
+      }
+    }
+
+    function togglePhysicalRelay(channel) {
+      toggleUnit(channel);
+    }
+
+    function syncPhysicalButtons() {
+      const u1 = UNITS.find(u => u.id === 1);
+      const u2 = UNITS.find(u => u.id === 2);
+
+      const btn1 = document.getElementById("hw-toggle-1");
+      const btn2 = document.getElementById("hw-toggle-2");
+
+      if (btn1) {
+        btn1.className = `px-4 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${u1.active ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}`;
+        btn1.innerText = u1.active ? 'FORCE ON' : 'FORCE OFF';
+      }
+      if (btn2) {
+        btn2.className = `px-4 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${u2.active ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}`;
+        btn2.innerText = u2.active ? 'FORCE ON' : 'FORCE OFF';
+      }
+    }
+
+    function updateMetrics() {
+      const activeCount = UNITS.filter(u => u.active).length;
+      const energySavedPercent = Math.round((1 - (activeCount / 10)) * 100);
+      const powerWatts = activeCount * 90; // Each unit consumes approx 90W (fan + light)
+
+      document.getElementById("metric-active-units").innerText = activeCount;
+      document.getElementById("bar-active-units").style.width = `${(activeCount / 10) * 100}%`;
+      document.getElementById("metric-energy-saved").innerText = `${energySavedPercent}%`;
+      document.getElementById("metric-power-watts").innerText = `${powerWatts} W`;
+    }
+
+    // Dispatch REST API to actual ESP32
+    function dispatchEsp32Hardware() {
+      const ip = document.getElementById("esp32-ip-input").value.trim();
+      const u1 = UNITS.find(u => u.id === 1).active ? "on" : "off";
+      const u2 = UNITS.find(u => u.id === 2).active ? "on" : "off";
+
+      const url = `${ip}/control?light=${u1}&fan=${u2}`;
+      fetch(url, { method: "GET", mode: "no-cors" })
+        .catch(e => console.log("ESP32 network dispatch handled:", e));
+    }
+
+    function pingEsp32() {
+      const ip = document.getElementById("esp32-ip-input").value.trim();
+      const dot = document.getElementById("hw-status-dot");
+      dot.className = "w-2.5 h-2.5 rounded-full bg-amber-400";
+
+      fetch(`${ip}/status`, { method: "GET" })
+        .then(res => res.json())
+        .then(data => {
+          dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
+        })
+        .catch(() => {
+          dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
+        });
+    }
+
+    function toggleSimulation() {
+      const btn = document.getElementById("sim-btn");
+      if (simulationInterval) {
+        clearInterval(simulationInterval);
+        simulationInterval = null;
+        btn.innerText = "Demo Auto-Sim";
+        btn.className = "px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-medium transition cursor-pointer";
+      } else {
+        btn.innerText = "Stop Sim";
+        btn.className = "px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-medium transition cursor-pointer";
+        simulationInterval = setInterval(() => {
+          // Randomly toggle 1 to 2 random units
+          const randomIndex = Math.floor(Math.random() * UNITS.length);
+          UNITS[randomIndex].active = !UNITS[randomIndex].active;
+          renderUnits();
+          if (UNITS[randomIndex].isPhysical) {
+            dispatchEsp32Hardware();
+          }
+        }, 4000);
+      }
+    }
+
+    // 10s Timer Countdown
+    setInterval(() => {
+      scanSecondsRemaining -= 0.1;
+      if (scanSecondsRemaining <= 0) {
+        scanSecondsRemaining = 10.0;
+      }
+      document.getElementById("metric-scan-timer").innerText = `${scanSecondsRemaining.toFixed(1)}s`;
+    }, 100);
+
+    // Initial Render
+    renderUnits();
+  </script>
+</body>
+</html>
