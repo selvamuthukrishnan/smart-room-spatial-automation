@@ -14,10 +14,10 @@ from ultralytics import YOLO
 # Step 3: Put that URL below:
 #   - For IP Webcam app: "http://<PHONE_IP>:8080/video"  (e.g., "http://192.168.43.1:8080/video")
 #   - To revert to Laptop Webcam: 0
-CAMERA_SOURCE = "http://192.168.43.1:8080/video"  # Set to your phone's IP Webcam stream or 0 for laptop webcam
+CAMERA_SOURCE = "http://10.46.38.156:8080/video"  # Mobile IP Webcam stream (or 0 for laptop webcam)
 
 # --- 🌐 ESP32 WI-FI CONFIGURATION ---
-ESP32_IP = "http://192.168.43.125"  # Put your ESP32's IP address (printed on Serial Monitor)
+ESP32_IP = "http://10.46.38.116"  # Live IP of connected ESP32
 
 # --- ⏱️ TIMING & DETECTION SETTINGS ---
 SCAN_INTERVAL_SEC = 10.0   # Scans 1 frame every 10 seconds for power efficiency
