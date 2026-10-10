@@ -22,7 +22,7 @@ if len(sys.argv) > 1:
     CAMERA_SOURCE = sys.argv[1]
 
 # --- 🌐 ESP32 WI-FI CONFIGURATION ---
-ESP32_IP = "http://192.168.43.125"  # Put your ESP32's IP address (printed on Serial Monitor)
+ESP32_IP = "http://10.46.38.116"  # Live IP of connected ESP32
 
 # --- ⏱️ TIMING & DETECTION SETTINGS ---
 SCAN_INTERVAL_SEC = 10.0   # Scans 1 frame every 10 seconds for power efficiency
