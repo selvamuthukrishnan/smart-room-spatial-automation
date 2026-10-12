@@ -41,6 +41,11 @@ const int PIN_UNIT_1     = 25;
 const int PIN_UNIT_2     = 26;  
 const int PIN_STATUS_LED = 2;   // Onboard Blue LED indicator
 
+// --- 🚪 DOORWAY SENSOR PINS (OUT & IN SENSORS) ---
+const int PIN_SENSOR_OUT = 18;  // OUT sensor (Outside / entrance door side)
+const int PIN_SENSOR_IN  = 19;  // IN sensor (Inside room side)
+#define SENSOR_TRIGGERED LOW    // Active-LOW logic (IR obstacle sensor outputs LOW on detection)
+
 // Aliases for backward compatibility
 const int PIN_LIGHT      = PIN_UNIT_1;
 const int PIN_FAN        = PIN_UNIT_2;
@@ -54,6 +59,14 @@ WebServer server(80);
 // Status tracking for the 2 Physical Workstation Units
 bool unit1State = false; // Relay 1 (Unit 1: Fan 1 + Light 1)
 bool unit2State = false; // Relay 2 (Unit 2: Fan 2 + Light 2)
+
+// --- 👥 CLASSROOM PEOPLE COUNTING STATE ---
+int personCount = 0;            // Live count of people currently present in the classroom
+bool outSensorTriggered = false;
+bool inSensorTriggered  = false;
+unsigned long sensorTriggerTime = 0;
+const unsigned long PASS_TIMEOUT_MS = 2500; // 2.5s window to complete passing both sensors
+
 unsigned long lastCommandTime = 0;
 const unsigned long AUTO_SHUTOFF_TIMEOUT = 35000; // 35 seconds safety timeout
 
@@ -67,6 +80,60 @@ void setAppliances(bool u1, bool u2) {
   Serial.printf("[RELAY UPDATE] Unit 1 (Fan 1 + Light 1): %s | Unit 2 (Fan 2 + Light 2): %s\n",
                 unit1State ? "ON" : "OFF",
                 unit2State ? "ON" : "OFF");
+}
+
+// 🚪 Bidirectional Doorway Logic (OUT -> IN = +1, IN -> OUT = -1)
+void updateDoorwayCounter() {
+  int outVal = digitalRead(PIN_SENSOR_OUT);
+  int inVal  = digitalRead(PIN_SENSOR_IN);
+
+  // 1. Initial trigger detection
+  if (outVal == SENSOR_TRIGGERED && !outSensorTriggered && !inSensorTriggered) {
+    outSensorTriggered = true;
+    sensorTriggerTime = millis();
+    delay(40); // Debounce
+  } else if (inVal == SENSOR_TRIGGERED && !inSensorTriggered && !outSensorTriggered) {
+    inSensorTriggered = true;
+    sensorTriggerTime = millis();
+    delay(40); // Debounce
+  }
+
+  // 2. OUT to IN (Entry sequence): OUT triggered first, now IN is triggered
+  if (outSensorTriggered && inVal == SENSOR_TRIGGERED) {
+    personCount++;
+    outSensorTriggered = false;
+    inSensorTriggered  = false;
+    lastCommandTime    = millis(); // Refresh activity timer
+
+    Serial.printf("\n[DOORWAY ENTRY] Person entered (OUT -> IN)! Total in room: %d\n", personCount);
+    delay(350); // Passage cooldown delay to avoid double counts
+  }
+
+  // 3. IN to OUT (Exit sequence): IN triggered first, now OUT is triggered
+  if (inSensorTriggered && outVal == SENSOR_TRIGGERED) {
+    if (personCount > 0) {
+      personCount--;
+    }
+    outSensorTriggered = false;
+    inSensorTriggered  = false;
+    lastCommandTime    = millis(); // Refresh activity timer
+
+    Serial.printf("\n[DOORWAY EXIT] Person exited (IN -> OUT)! Total in room: %d\n", personCount);
+
+    // 💡 Auto-Off: If room is now empty, immediately turn OFF all appliances!
+    if (personCount == 0) {
+      Serial.println("[AUTO-OFF] Classroom is now empty (personCount == 0). Turning OFF all fans and lights!");
+      setAppliances(false, false);
+    }
+
+    delay(350); // Passage cooldown delay to avoid double counts
+  }
+
+  // 4. Timeout reset: Cancel partial sequence if person turned around without completing pass
+  if ((outSensorTriggered || inSensorTriggered) && (millis() - sensorTriggerTime > PASS_TIMEOUT_MS)) {
+    outSensorTriggered = false;
+    inSensorTriggered  = false;
+  }
 }
 
 // Helper to extract boolean value for a key from JSON string without external libraries
@@ -186,6 +253,11 @@ void handleRoot() {
   html += ".on{color:#4ade80;font-weight:bold;}.off{color:#f87171;font-weight:bold;}";
   html += "h1{color:#38bdf8;font-size:24px;}</style></head><body>";
   html += "<h1>🏠 Spatial AI Smart Room</h1>";
+  html += "<div class='card' style='border:1px solid #38bdf8;'>";
+  html += "<h3 style='color:#38bdf8;'>👥 Classroom Occupancy</h3>";
+  html += "<h2 style='font-size:36px;margin:8px 0;color:#38bdf8;'>" + String(personCount) + "</h2>";
+  html += "<p style='color:#94a3b8;font-size:12px;'>Live People Count (Doorway OUT / IN Sensors)</p>";
+  html += "</div>";
   html += "<div class='card'>";
   html += "<h3>💡 Unit 01 (Fan 1 + Light 1)</h3>";
   html += "<p>Relay 1: <span class='" + String(unit1State ? "on'>ONLINE (ACTIVE)" : "off'>OFFLINE (IDLE)") + "</span></p>";
@@ -201,10 +273,23 @@ void handleRoot() {
 
 // 📡 API Endpoint: Handles direct Push requests from Dashboard or Friend
 // URL Example: http://<ESP32_IP>/control?unit_1=on&unit_2=off
-// Also supports: light=on, fan=off, fan_1=on, light_1=on, etc.
+// Also supports: light=on, fan=off, fan_1=on, light_1=on, reset_count=1, count=5, etc.
 void handleControl() {
   lastCommandTime = millis();
   digitalWrite(PIN_STATUS_LED, HIGH);
+
+  // Manual reset or override for person count (?reset_count=1 or ?count=5)
+  if (server.hasArg("reset_count")) {
+    personCount = 0;
+    Serial.println("[MANUAL OVERRIDE] Person count reset to 0.");
+    setAppliances(false, false);
+  } else if (server.hasArg("count")) {
+    personCount = max(0, (int)server.arg("count").toInt());
+    Serial.printf("[MANUAL OVERRIDE] Person count set to %d.\n", personCount);
+    if (personCount == 0) {
+      setAppliances(false, false);
+    }
+  }
 
   bool newU1 = unit1State;
   bool newU2 = unit2State;
@@ -268,7 +353,9 @@ void handleControl() {
 
 // JSON Status endpoint
 void handleStatus() {
-  String json = "{\"unit_1\":" + String(unit1State ? "true" : "false") + 
+  String json = "{\"person_count\":" + String(personCount) + 
+                ",\"people_count\":" + String(personCount) + 
+                ",\"unit_1\":" + String(unit1State ? "true" : "false") + 
                 ",\"unit_2\":" + String(unit2State ? "true" : "false") + 
                 ",\"relay_1\":" + String(unit1State ? "true" : "false") + 
                 ",\"relay_2\":" + String(unit2State ? "true" : "false") + 
@@ -289,6 +376,10 @@ void setup() {
   pinMode(PIN_UNIT_1, OUTPUT);
   pinMode(PIN_UNIT_2, OUTPUT);
   pinMode(PIN_STATUS_LED, OUTPUT);
+
+  // Doorway Sensor Pins (INPUT_PULLUP for electrical noise immunity)
+  pinMode(PIN_SENSOR_OUT, INPUT_PULLUP);
+  pinMode(PIN_SENSOR_IN, INPUT_PULLUP);
 
   // Initial State: OFF (Safety First)
   setAppliances(false, false);
@@ -340,6 +431,15 @@ void setup() {
 
 void loop() {
   server.handleClient();
+
+  // 🚪 Real-time doorway sensor processing (OUT <-> IN)
+  updateDoorwayCounter();
+
+  // 💡 Room Vacancy Guard: If room is empty (personCount == 0), automatically turn OFF all appliances!
+  if (personCount == 0 && (unit1State || unit2State)) {
+    Serial.println("\n[VACANCY GUARD] Classroom is empty (personCount == 0). Turning OFF all fans and lights!");
+    setAppliances(false, false);
+  }
 
   // 📡 Periodically retrieve status from Dashboard Server
   if (millis() - lastPollTime >= POLL_INTERVAL_MS) {
