@@ -32,3 +32,4 @@ models/Classroom Video/
 dataset/
 cctv_dataset_frames/
 *.zip
+runs/
