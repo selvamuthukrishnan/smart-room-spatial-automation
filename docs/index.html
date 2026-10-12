@@ -30,8 +30,8 @@
       <div class="flex items-center gap-3">
         <span class="text-2xl">🏠</span>
         <h1 class="text-xl md:text-2xl font-bold tracking-tight text-white">Spatial AI Smart Room Automation</h1>
-        <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 pulse-live">
-          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> LIVE SYSTEM
+        <span id="ai-badge-status" class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 pulse-live">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> <span id="ai-badge-text">AI VISION STANDBY</span>
         </span>
       </div>
       <p class="text-sm text-slate-400 mt-1">
@@ -89,14 +89,14 @@
       <p class="text-xs text-slate-400 mt-2">720 Watts currently conserved</p>
     </div>
 
-    <!-- Metric 4: AI Scan Heartbeat -->
+    <!-- Metric 4: Real-Time AI Vision Scanner -->
     <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
       <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">YOLO-World Scanner</span>
       <div class="flex items-baseline justify-between mt-2">
-        <span id="metric-scan-timer" class="text-3xl font-extrabold text-sky-400">7.2s</span>
-        <span class="text-xs text-sky-400/80 font-semibold">10s Interval</span>
+        <span id="metric-scan-timer" class="text-3xl font-extrabold text-emerald-400">LIVE</span>
+        <span class="text-xs text-emerald-400/80 font-semibold">&bull; Real-Time</span>
       </div>
-      <p class="text-xs text-slate-400 mt-2">Open-vocabulary vision scan cadence</p>
+      <p class="text-xs text-slate-400 mt-2">Continuous zero-latency vision inference</p>
     </div>
   </section>
 
@@ -158,6 +158,32 @@
         <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
           <span>Safety Watchdog:</span>
           <span class="font-mono text-emerald-400">35s Auto-Shutoff Active</span>
+        </div>
+      </div>
+
+      <!-- LIVE AI CAMERA STREAM -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <h3 class="font-semibold text-sm text-white flex items-center gap-2">
+            <span>📹</span> Live AI Camera Stream
+          </h3>
+          <span id="stream-live-pill" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-700/50 text-slate-400 border border-slate-700">
+            STANDBY
+          </span>
+        </div>
+
+        <div class="mt-4 relative rounded-lg overflow-hidden bg-slate-950 border border-slate-800 aspect-video flex items-center justify-center">
+          <img id="live-stream-img" src="http://localhost:5000/video_feed" alt="Live AI Camera Feed" class="w-full h-full object-cover">
+          <div id="stream-offline-overlay" class="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-slate-950/90">
+            <span class="text-3xl mb-1">📷</span>
+            <span class="text-xs font-semibold text-slate-300">Live AI Stream Standby</span>
+            <span class="text-[10px] text-slate-500 mt-1">Start spatial_server.py to stream phone camera</span>
+          </div>
+        </div>
+
+        <div class="mt-3 flex items-center justify-between text-[11px] text-slate-400">
+          <span>Vision: <span class="text-sky-400 font-mono">YOLO-World (10s Scan)</span></span>
+          <span id="humans-detected-tag" class="text-emerald-400 font-mono">0 Humans Detected</span>
         </div>
       </div>
 
@@ -374,14 +400,114 @@
       }
     }
 
-    // 10s Timer Countdown
+    // 10s Timer Countdown (runs locally when offline, or synced when connected)
     setInterval(() => {
-      scanSecondsRemaining -= 0.1;
-      if (scanSecondsRemaining <= 0) {
-        scanSecondsRemaining = 10.0;
+      if (!isAiServerConnected) {
+        scanSecondsRemaining -= 0.1;
+        if (scanSecondsRemaining <= 0) {
+          scanSecondsRemaining = 10.0;
+        }
+        document.getElementById("metric-scan-timer").innerText = `${scanSecondsRemaining.toFixed(1)}s`;
       }
-      document.getElementById("metric-scan-timer").innerText = `${scanSecondsRemaining.toFixed(1)}s`;
     }, 100);
+
+    // --- 🤖 REAL-TIME AI VISION & DIGITAL TWIN SYNC ENGINE ---
+    let isAiServerConnected = false;
+    const API_BASE = (window.location.port === "5000") ? "" : "http://localhost:5000";
+
+    async function pollAiServer() {
+      // If user is currently running manual demo auto-simulation, let the sim take priority
+      if (simulationInterval) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/status`, { cache: "no-store" });
+        if (!res.ok) throw new Error("Server not responding");
+        const data = await res.json();
+
+        // 1. Connection established
+        if (!isAiServerConnected) {
+          isAiServerConnected = true;
+          const badge = document.getElementById("ai-badge-status");
+          if (badge) {
+            badge.className = "px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 pulse-live";
+          }
+          const badgeText = document.getElementById("ai-badge-text");
+          if (badgeText) badgeText.innerText = "AI VISION LIVE";
+
+          const streamPill = document.getElementById("stream-live-pill");
+          if (streamPill) {
+            streamPill.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+            streamPill.innerText = "LIVE STREAM";
+          }
+          const streamImg = document.getElementById("live-stream-img");
+          if (streamImg) streamImg.src = `${API_BASE}/video_feed`;
+          const overlay = document.getElementById("stream-offline-overlay");
+          if (overlay) overlay.classList.add("hidden");
+        }
+
+        // 2. Sync Unit 1 & Unit 2 directly from YOLO-World Detection
+        let stateChanged = false;
+        if (data.unit_1 !== undefined) {
+          const u1 = UNITS.find(u => u.id === 1);
+          if (u1 && u1.active !== data.unit_1.active) {
+            u1.active = data.unit_1.active;
+            stateChanged = true;
+          }
+        }
+        if (data.unit_2 !== undefined) {
+          const u2 = UNITS.find(u => u.id === 2);
+          if (u2 && u2.active !== data.unit_2.active) {
+            u2.active = data.unit_2.active;
+            stateChanged = true;
+          }
+        }
+
+        // 3. Sync Humans Detected metric
+        const humanTag = document.getElementById("humans-detected-tag");
+        if (humanTag && data.humans_detected !== undefined) {
+          humanTag.innerText = `${data.humans_detected} Human${data.humans_detected === 1 ? '' : 's'} Detected`;
+        }
+
+        // 4. Sync Scan status
+        const timerEl = document.getElementById("metric-scan-timer");
+        if (timerEl) {
+          timerEl.innerText = (data.scan_seconds_remaining === "LIVE" || data.mode === "REAL-TIME") ? "LIVE" : `${data.scan_seconds_remaining}s`;
+        }
+
+        // 5. Sync ESP32 IP
+        if (data.esp32_ip) {
+          const ipInput = document.getElementById("esp32-ip-input");
+          if (ipInput && ipInput.value !== data.esp32_ip) {
+            ipInput.value = data.esp32_ip;
+          }
+        }
+
+        if (stateChanged) {
+          renderUnits();
+        }
+      } catch (err) {
+        if (isAiServerConnected) {
+          isAiServerConnected = false;
+          const badge = document.getElementById("ai-badge-status");
+          if (badge) {
+            badge.className = "px-2.5 py-0.5 text-xs font-semibold rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1.5";
+          }
+          const badgeText = document.getElementById("ai-badge-text");
+          if (badgeText) badgeText.innerText = "STANDALONE DEMO";
+
+          const streamPill = document.getElementById("stream-live-pill");
+          if (streamPill) {
+            streamPill.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-700/50 text-slate-400 border border-slate-700";
+            streamPill.innerText = "STANDBY";
+          }
+          const overlay = document.getElementById("stream-offline-overlay");
+          if (overlay) overlay.classList.remove("hidden");
+        }
+      }
+    }
+
+    // Poll AI Server every 500ms for real-time reactivity
+    setInterval(pollAiServer, 500);
 
     // Initial Render
     renderUnits();
