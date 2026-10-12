@@ -358,10 +358,34 @@
       const u1 = UNITS.find(u => u.id === 1).active ? "on" : "off";
       const u2 = UNITS.find(u => u.id === 2).active ? "on" : "off";
 
-      const url = `${ip}/control?light=${u1}&fan=${u2}`;
+      const url = `${ip}/control?unit_1=${u1}&unit_2=${u2}&light=${u1}&fan=${u2}`;
       fetch(url, { method: "GET", mode: "no-cors" })
+        .then(() => console.log(`[ESP32 SYNC] Sent Unit 1: ${u1}, Unit 2: ${u2} to ${ip}`))
         .catch(e => console.log("ESP32 network dispatch handled:", e));
     }
+
+    // Global APIs for external ML models or automation scripts
+    window.setUnitStatus = function(unitIndex, state) {
+      const targetId = (unitIndex >= 1 && unitIndex <= 10) ? unitIndex : unitIndex + 1;
+      const unit = UNITS.find(u => u.id === targetId);
+      if (unit) {
+        unit.active = (state === true || state === 1 || state === "on");
+        renderUnits();
+        if (unit.isPhysical) dispatchEsp32Hardware();
+      }
+    };
+
+    window.setAllUnits = function(statusArray) {
+      if (Array.isArray(statusArray)) {
+        statusArray.forEach((val, idx) => {
+          if (idx < UNITS.length) {
+            UNITS[idx].active = (val === true || val === 1 || val === "on");
+          }
+        });
+        renderUnits();
+        dispatchEsp32Hardware();
+      }
+    };
 
     function pingEsp32() {
       const ip = document.getElementById("esp32-ip-input").value.trim();
