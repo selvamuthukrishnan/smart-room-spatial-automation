@@ -1,3 +1,4 @@
+import os
 import cv2
 import time
 import math
@@ -5,11 +6,11 @@ import socket
 import threading
 import requests
 import numpy as np
-from flask import Flask, render_template_string, jsonify, request
+from flask import Flask, Response, jsonify, request
 from ultralytics import YOLO
 
 # =================================================================================
-# PROJECT: Spatial AI Power Automation - Smart Classroom System
+# PROJECT: Spatial AI Smart Room - Central Server with index.html Digital Twin
 # =================================================================================
 
 def get_local_ip():
@@ -30,9 +31,8 @@ LOCAL_IP = get_local_ip()
 CAMERA_SOURCE = 0  
 ESP32_IP = "http://192.168.43.125"
 
-# --- 🎯 CLASSROOM APPLIANCES REGISTRY (Extracted from Reference Frame) ---
+# --- 🎯 CLASSROOM APPLIANCES REGISTRY ---
 APPLIANCES = {
-    # TOP ROW CEILING FANS
     "fan_top_left": {
         "name": "Fan 1 (Top Left)",
         "type": "fan",
@@ -57,8 +57,6 @@ APPLIANCES = {
         "vision_state": "OFF",
         "control_state": False
     },
-
-    # MIDDLE ROW CEILING FANS
     "fan_mid_left": {
         "name": "Fan 4 (Row 2 Left)",
         "type": "fan",
@@ -83,8 +81,6 @@ APPLIANCES = {
         "vision_state": "OFF",
         "control_state": False
     },
-
-    # LIGHT FIXTURES
     "light_left": {
         "name": "Light 1 (Wall Lamp Left)",
         "type": "light",
@@ -94,7 +90,6 @@ APPLIANCES = {
         "control_state": False
     },
     "light_center_tube": {
-        # 💡 THE CENTER TUBE LIGHT
         "name": "Light 2 (Center Tube Light)",
         "type": "light",
         "roi": (740, 485, 210, 45),
@@ -104,137 +99,118 @@ APPLIANCES = {
     }
 }
 
-# --- GLOBAL VARIABLES & LOCKS ---
-prev_gray_frame = None
+# 10 Workstation Units State for index.html Digital Twin
+WORKSTATION_UNITS = [False] * 10
+
+# --- GLOBAL THREADING STATE ---
 latest_frame = None
+prev_gray_frame = None
 lock = threading.Lock()
 PROXIMITY_RADIUS = 280
 SCAN_INTERVAL_SEC = 10.0
 last_scan_time = 0
+humans_detected_count = 0
+remaining_time_global = 10.0
 
-# --- INITIALIZE FLASK DASHBOARD ---
+# --- INITIALIZE FLASK SERVER TO SERVE index.html ---
 app = Flask(__name__)
 
-DASHBOARD_HTML = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Classroom AI Dashboard</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background: #0f172a; color: #f8fafc; padding: 25px; }
-        header { text-align: center; margin-bottom: 25px; }
-        h1 { color: #38bdf8; font-size: 28px; margin-bottom: 8px; }
-        p.subtitle { color: #94a3b8; font-size: 14px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; max-width: 1300px; margin: 0 auto; }
-        .card { background: #1e293b; border-radius: 14px; padding: 20px; border: 1px solid #334155; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); transition: all 0.3s; }
-        .card:hover { transform: translateY(-3px); border-color: #38bdf8; }
-        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .card-title { font-size: 16px; font-weight: 600; color: #e2e8f0; }
-        .badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
-        .badge-on { background: #166534; color: #4ade80; border: 1px solid #22c55e; }
-        .badge-off { background: #334155; color: #94a3b8; border: 1px solid #475569; }
-        .status-box { background: #0f172a; border-radius: 8px; padding: 12px; margin-bottom: 15px; font-size: 13px; line-height: 1.6; }
-        .status-box span { font-weight: 600; }
-        .btn-toggle { width: 100%; padding: 10px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; }
-        .btn-active { background: #ef4444; color: white; }
-        .btn-active:hover { background: #dc2626; }
-        .btn-idle { background: #3b82f6; color: white; }
-        .btn-idle:hover { background: #2563eb; }
-        .banner { background: #1e1b4b; border: 1px solid #6366f1; border-radius: 10px; padding: 15px; margin: 0 auto 20px auto; max-width: 1300px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
-        .network-tag { background: #312e81; padding: 6px 12px; border-radius: 6px; font-size: 13px; color: #c7d2fe; border: 1px solid #4338ca; }
-    </style>
-</head>
-<body>
-    <header>
-        <h1>⚡ Smart Classroom AI Spatial Dashboard</h1>
-        <p class="subtitle">Real-time Vision Status Detection & Capacity-based Appliance Automation</p>
-    </header>
-
-    <div class="banner">
-        <div>
-            <strong style="color: #a5b4fc;">Live Detection Status:</strong>
-            <span id="scan-timer" style="color: #fbcfe8; margin-left: 8px;">Scanning every 10s...</span>
-        </div>
-        <div class="network-tag">📱 Mobile / Hotspot Link: <strong>http://{{ local_ip }}:5000</strong></div>
-        <div class="network-tag">📡 Target ESP32: <strong>{{ esp32_ip }}</strong></div>
-    </div>
-
-    <div class="grid" id="appliances-grid">
-        <!-- Rendered dynamically via JavaScript -->
-    </div>
-
-    <script>
-        function updateDashboard() {
-            fetch('/api/status')
-                .then(res => res.json())
-                .then(data => {
-                    const grid = document.getElementById('appliances-grid');
-                    grid.innerHTML = '';
-                    
-                    for (const [key, item] of Object.entries(data.appliances)) {
-                        const isVisionOn = item.vision_state.includes('ON');
-                        const isControlOn = item.control_state;
-
-                        const card = document.createElement('div');
-                        card.className = 'card';
-                        card.innerHTML = `
-                            <div class="card-header">
-                                <span class="card-title">${item.type === 'fan' ? '🌀' : '💡'} ${item.name}</span>
-                                <span class="badge ${isVisionOn ? 'badge-on' : 'badge-off'}">${item.vision_state}</span>
-                            </div>
-                            <div class="status-box">
-                                <div>Physical Status: <span style="color: ${isVisionOn ? '#4ade80' : '#94a3b8'}">${item.vision_state}</span></div>
-                                <div>System Output: <span style="color: ${isControlOn ? '#38bdf8' : '#64748b'}">${isControlOn ? 'ENERGIZED (ON)' : 'POWER SAVING (OFF)'}</span></div>
-                            </div>
-                            <button class="btn-toggle ${isControlOn ? 'btn-active' : 'btn-idle'}" onclick="toggleAppliance('${key}')">
-                                ${isControlOn ? 'Power OFF' : 'Power ON'}
-                            </button>
-                        `;
-                        grid.appendChild(card);
-                    }
-                });
-        }
-
-        function toggleAppliance(key) {
-            fetch('/api/toggle', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({appliance: key})
-            }).then(() => updateDashboard());
-        }
-
-        setInterval(updateDashboard, 1500);
-        updateDashboard();
-    </script>
-</body>
-</html>
-"""
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return response
 
 @app.route("/")
-def index():
-    return render_template_string(DASHBOARD_HTML, esp32_ip=ESP32_IP, local_ip=LOCAL_IP)
+@app.route("/index.html")
+@app.route("/dashboard")
+@app.route("/dashboard.html")
+def serve_index_html():
+    """Serves the actual index.html Digital Twin dashboard from project folder"""
+    index_path = os.path.join(os.path.dirname(__file__), "index.html")
+    if os.path.exists(index_path):
+        with open(index_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return Response(content, mimetype="text/html")
+    return "Error: index.html not found in project folder", 404
+
+def generate_video_stream():
+    """Live MJPEG video streaming for index.html <img id='live-stream-img'>"""
+    while True:
+        with lock:
+            if latest_frame is None:
+                time.sleep(0.04)
+                continue
+            ret, buffer = cv2.imencode(".jpg", latest_frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+            if not ret:
+                time.sleep(0.04)
+                continue
+            frame_bytes = buffer.tobytes()
+
+        yield (b"--frame\r\n"
+               b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n")
+        time.sleep(0.04)
+
+@app.route("/video_feed")
+def video_feed():
+    return Response(generate_video_stream(), mimetype="multipart/x-mixed-replace; boundary=frame")
 
 @app.route("/api/status")
+@app.route("/status")
 def api_status():
+    """Unified API consumed by index.html and ESP32"""
     with lock:
-        return jsonify({"appliances": APPLIANCES})
+        unit1_active = APPLIANCES["fan_top_left"]["control_state"] or APPLIANCES["light_left"]["control_state"] or WORKSTATION_UNITS[0]
+        unit2_active = APPLIANCES["fan_top_center"]["control_state"] or APPLIANCES["light_center_tube"]["control_state"] or WORKSTATION_UNITS[1]
 
+        active_count = sum(1 for u in WORKSTATION_UNITS if u)
+        energy_saved = int(round((1.0 - (max(active_count, 1) / 10.0)) * 100))
+
+        return jsonify({
+            "units": WORKSTATION_UNITS,
+            "unit_1": {"active": unit1_active, "name": "Workstation 01 (Hardware Relay 1)"},
+            "unit_2": {"active": unit2_active, "name": "Workstation 02 (Hardware Relay 2)"},
+            "relay_1": unit1_active,
+            "relay_2": unit2_active,
+            "active_units": active_count,
+            "energy_saved_percent": energy_saved,
+            "humans_detected": humans_detected_count,
+            "scan_seconds_remaining": f"{remaining_time_global:.1f}",
+            "esp32_ip": ESP32_IP,
+            "appliances": APPLIANCES
+        })
+
+@app.route("/api/update", methods=["GET", "POST"])
 @app.route("/api/toggle", methods=["POST"])
 def api_toggle():
-    data = request.json
-    key = data.get("appliance")
+    global WORKSTATION_UNITS
     with lock:
-        if key in APPLIANCES:
-            APPLIANCES[key]["control_state"] = not APPLIANCES[key]["control_state"]
+        if request.is_json:
+            data = request.json
+            if "appliance" in data:
+                key = data["appliance"]
+                if key in APPLIANCES:
+                    APPLIANCES[key]["control_state"] = not APPLIANCES[key]["control_state"]
+            if "unit" in data:
+                uid = int(data["unit"])
+                if 0 <= uid < 10:
+                    WORKSTATION_UNITS[uid] = not WORKSTATION_UNITS[uid]
+        elif request.args:
+            for k, v in request.args.items():
+                if k.startswith("unit_"):
+                    try:
+                        idx = int(k.split("_")[1]) - 1
+                        if 0 <= idx < 10:
+                            WORKSTATION_UNITS[idx] = (v.lower() == "on")
+                    except Exception:
+                        pass
     return jsonify({"success": True})
 
 def start_flask():
     app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
 
-# Start Dashboard in a background thread
+# Start web server thread
 flask_thread = threading.Thread(target=start_flask, daemon=True)
 flask_thread.start()
 
@@ -277,21 +253,27 @@ def detect_light_illuminated(frame, roi):
     else:
         return "OFF (DARK)"
 
+def send_esp32_hardware(relay1, relay2):
+    try:
+        url = f"{ESP32_IP}/control?light={'on' if relay1 else 'off'}&fan={'on' if relay2 else 'off'}"
+        requests.get(url, timeout=0.8)
+    except Exception:
+        pass
+
 # --- MAIN AI COMPUTER VISION LOOP ---
 print("\n" + "="*70)
-print(" 🚀 SMART CLASSROOM SPATIAL AI ENGINE ACTIVE")
+print(" 🚀 SPATIAL AI SMART ROOM - DIGITAL TWIN SERVER ACTIVE")
 print("="*70)
-print(f" 💻 Local Laptop Link:     http://localhost:5000")
+print(f" 💻 Local Dashboard:       http://localhost:5000 (Opens index.html)")
 print(f" 📱 Mobile / Hotspot Link:  http://{LOCAL_IP}:5000")
-print(f" 🌐 Target ESP32 Node:     {ESP32_IP}")
+print(f" 📹 Live Video Stream:     http://localhost:5000/video_feed")
+print(f" 🌐 Target ESP32 Hardware: {ESP32_IP}")
 print("-" * 70)
-print(" 💡 HOW TO OPEN ON MOBILE PHONE (SAME HOTSPOT / WI-FI):")
-print(f"    1. Connect your phone to this laptop's Mobile Hotspot or Wi-Fi.")
-print(f"    2. Open Chrome/Safari on your phone and go to:")
-print(f"       👉 http://{LOCAL_IP}:5000")
+print(" 💡 To view on phone (Same Hotspot/Wi-Fi):")
+print(f"    👉 http://{LOCAL_IP}:5000")
 print("="*70 + "\n")
 
-print("[AI SERVER] Initializing YOLO-World Model...")
+print("[AI SERVER] Loading YOLO-World...")
 model = YOLO("yolov8s-world.pt")
 model.set_classes(["person", "ceiling fan", "tube light", "lamp", "fluorescent light"])
 
@@ -312,6 +294,7 @@ while True:
     current_time = time.time()
     time_since_last_scan = current_time - last_scan_time
     remaining_time = max(0.0, SCAN_INTERVAL_SEC - time_since_last_scan)
+    remaining_time_global = remaining_time
 
     # 1. Real-time Physical Vision Status Detection (Every frame)
     with lock:
@@ -339,7 +322,8 @@ while True:
                 detected_humans.append((hx, hy))
 
         with lock:
-            for key, item in APPLIANCES.items():
+            humans_detected_count = len(detected_humans)
+            for i, (key, item) in enumerate(APPLIANCES.items()):
                 zx, zy = item["zone_centroid"]
                 occupied = False
                 for (hx, hy) in detected_humans:
@@ -347,6 +331,13 @@ while True:
                         occupied = True
                         break
                 item["control_state"] = occupied
+                if i < 10:
+                    WORKSTATION_UNITS[i] = occupied
+
+        # Dispatch hardware commands to ESP32
+        r1 = APPLIANCES["fan_top_left"]["control_state"] or APPLIANCES["light_left"]["control_state"]
+        r2 = APPLIANCES["fan_top_center"]["control_state"] or APPLIANCES["light_center_tube"]["control_state"]
+        send_esp32_hardware(r1, r2)
 
     # 3. Render Visual Overlays on Video Feed
     with lock:
@@ -363,10 +354,13 @@ while True:
             active_color = (0, 255, 255) if item["control_state"] else (60, 60, 60)
             cv2.circle(frame, (zx, zy), 25, active_color, 2)
 
+        # Store latest frame for the index.html live web stream (/video_feed)
+        latest_frame = frame.copy()
+
     # Top Status Banner
     banner_bg = (20, 20, 30)
     cv2.rectangle(frame, (10, 10), (580, 50), banner_bg, -1)
-    status_text = f"Mobile: http://{LOCAL_IP}:5000 | Next Scan: {remaining_time:.1f}s"
+    status_text = f"Dashboard: http://localhost:5000 | Next Scan: {remaining_time:.1f}s"
     cv2.putText(frame, status_text, (20, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.52, (0, 255, 255), 2)
 
     cv2.imshow(window_name, frame)
