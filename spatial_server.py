@@ -645,6 +645,10 @@ if not cap.isOpened() and os.path.exists(DEFAULT_DEMO_VIDEO):
 window_name = "Spatial AI Smart Classroom Vision Monitor"
 cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
 cv2.resizeWindow(window_name, 960, 540)
+try:
+    cv2.setWindowProperty(window_name, cv2.WND_PROP_TOPMOST, 1)
+except Exception:
+    pass
 
 frame_idx = 0
 while True:
@@ -788,17 +792,14 @@ while True:
     status_text = f"Live Students: {humans_detected_count} | Active: {active_count} | Shift: ({camera_shift_x},{camera_shift_y})px"
     cv2.putText(frame, status_text, (20, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
 
-    cv2.imshow(window_name, frame)
+    try:
+        cv2.imshow(window_name, frame)
+    except Exception as e:
+        pass
 
     key = cv2.waitKey(10) & 0xFF
     if key in [ord('q'), ord('Q'), 27]:
         break
-    if frame_idx > 15:
-        try:
-            if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
-                break
-        except Exception:
-            pass
 
 cap.release()
 cv2.destroyAllWindows()
