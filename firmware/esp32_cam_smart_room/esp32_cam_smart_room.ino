@@ -14,8 +14,8 @@
 #include <WiFi.h>
 
 // --- Wi-Fi Credentials (Set your Hotspot / Router details) ---
-const char* ssid = "YOUR_WIFI_NAME";
-const char* password = "YOUR_WIFI_PASSWORD";
+const char* ssid = "IQOO Z9x 5G";
+const char* password = "smk672007";
 
 // --- RELAY PIN DEFINITIONS FOR ESP32-CAM ---
 // ESP32-CAM-la camera pins pogha free-ah irukura best pins:

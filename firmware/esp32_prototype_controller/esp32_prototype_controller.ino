@@ -22,8 +22,8 @@
 #include <HTTPClient.h>
 
 // --- 🌐 WI-FI CREDENTIALS (Enter your Mobile Hotspot / Wi-Fi details here) ---
-const char* ssid     = "YOUR_HOTSPOT_NAME";      // e.g. "MyHotspot"
-const char* password = "YOUR_HOTSPOT_PASSWORD";  // e.g. "12345678"
+const char* ssid     = "IQOO Z9x 5G";
+const char* password = "smk672007";
 
 // --- 🌐 DASHBOARD RETRIEVAL / POLLING CONFIGURATION ---
 // Set to true to automatically retrieve status from the dashboard server
