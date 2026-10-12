@@ -35,16 +35,6 @@ ESP32_IP = "http://192.168.43.125"
 
 # --- 🎯 LOAD APPLIANCES CONFIGURATION ---
 def load_appliances():
-    default_config = {
-        "fan_top_left": {"name": "Fan 1 (Top Left)", "type": "fan", "roi": [25, 200, 235, 220], "zone_centroid": [150, 480]},
-        "fan_top_center": {"name": "Fan 2 (Top Center)", "type": "fan", "roi": [415, 200, 230, 225], "zone_centroid": [530, 480]},
-        "fan_top_right": {"name": "Fan 3 (Top Right)", "type": "fan", "roi": [860, 190, 230, 230], "zone_centroid": [970, 480]},
-        "fan_mid_left": {"name": "Fan 4 (Row 2 Left)", "type": "fan", "roi": [260, 500, 130, 130], "zone_centroid": [320, 650]},
-        "fan_mid_center": {"name": "Fan 5 (Row 2 Center)", "type": "fan", "roi": [515, 500, 140, 135], "zone_centroid": [580, 650]},
-        "fan_mid_right": {"name": "Fan 6 (Row 2 Right)", "type": "fan", "roi": [805, 510, 155, 140], "zone_centroid": [880, 650]},
-        "light_left": {"name": "Light 1 (Wall Lamp Left)", "type": "light", "roi": [80, 520, 95, 110], "zone_centroid": [150, 650]},
-        "light_center_tube": {"name": "Light 2 (Center Tube Light)", "type": "light", "roi": [740, 485, 210, 45], "zone_centroid": [840, 600]}
-    }
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -55,10 +45,7 @@ def load_appliances():
                 return loaded
         except Exception as e:
             print(f"[CONFIG] Error loading {CONFIG_FILE}: {e}")
-    for k, v in default_config.items():
-        v["vision_state"] = "OFF"
-        v["control_state"] = False
-    return default_config
+    return {}
 
 def save_appliances_to_disk(config_data):
     clean_data = {}
@@ -348,21 +335,29 @@ CALIBRATION_HTML = """
             if (activeKey === key) activeKey = null;
             renderList();
             redrawCanvas();
+            saveAllToBackend(false);
         }
 
         function clearAllAppliances() {
-            if (confirm("Clear all configured appliances?")) {
+            if (confirm("Clear all configured appliances? All boxes will be removed immediately.")) {
                 appliances = {};
                 activeKey = null;
                 renderList();
                 redrawCanvas();
+                saveAllToBackend(false);
             }
         }
 
         function renderList() {
             const list = document.getElementById('appliances-list');
-            document.getElementById('appliance-count').innerText = Object.keys(appliances).length;
+            const count = Object.keys(appliances).length;
+            document.getElementById('appliance-count').innerText = count;
             list.innerHTML = '';
+
+            if (count === 0) {
+                list.innerHTML = '<div class="text-slate-500 text-center py-4">No appliances mapped yet.<br>Click on the camera frame to place your first box!</div>';
+                return;
+            }
 
             for (const [key, item] of Object.entries(appliances)) {
                 const el = document.createElement('div');
@@ -394,7 +389,7 @@ CALIBRATION_HTML = """
                 });
         }
 
-        function saveAllToBackend() {
+        function saveAllToBackend(showAlert = true) {
             fetch('/api/save_appliances', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -402,9 +397,11 @@ CALIBRATION_HTML = """
             })
             .then(r => r.json())
             .then(res => {
-                alert("🎉 Calibration saved successfully! All boxes updated live on Dashboard.");
+                if (showAlert) alert("🎉 Calibration saved successfully! All boxes updated live on Dashboard.");
             })
-            .catch(e => alert("Error saving: " + e));
+            .catch(e => {
+                if (showAlert) alert("Error saving: " + e);
+            });
         }
 
         function resetCameraShift() {
