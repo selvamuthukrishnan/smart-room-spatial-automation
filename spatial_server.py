@@ -1,6 +1,7 @@
 import cv2
 import time
 import math
+import socket
 import threading
 import requests
 import numpy as np
@@ -11,22 +12,34 @@ from ultralytics import YOLO
 # PROJECT: Spatial AI Power Automation - Smart Classroom System
 # =================================================================================
 
+def get_local_ip():
+    """Dynamically finds the laptop's actual IP address on Wi-Fi / Hotspot network"""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+LOCAL_IP = get_local_ip()
+
 # --- 📱 CAMERA & ESP32 CONFIGURATION ---
 # Change to your phone's IP Webcam URL e.g. "http://192.168.43.1:8080/video", or 0 for webcam
 CAMERA_SOURCE = 0  
 ESP32_IP = "http://192.168.43.125"
 
 # --- 🎯 CLASSROOM APPLIANCES REGISTRY (Extracted from Reference Frame) ---
-# Each appliance has its calibrated position, zone proximity, and live states:
 APPLIANCES = {
     # TOP ROW CEILING FANS
     "fan_top_left": {
         "name": "Fan 1 (Top Left)",
         "type": "fan",
-        "roi": (25, 200, 235, 220),       # (x, y, w, h)
-        "zone_centroid": (150, 480),     # Associated seating area on floor
-        "vision_state": "OFF",           # Vision detected: ON (Spinning) / OFF (Still)
-        "control_state": False           # Relayed control: True (Active) / False
+        "roi": (25, 200, 235, 220),
+        "zone_centroid": (150, 480),
+        "vision_state": "OFF",
+        "control_state": False
     },
     "fan_top_center": {
         "name": "Fan 2 (Top Center)",
@@ -81,10 +94,10 @@ APPLIANCES = {
         "control_state": False
     },
     "light_center_tube": {
-        # 💡 THE CENTER TUBE LIGHT (Now Calibrated & Integrated!)
+        # 💡 THE CENTER TUBE LIGHT
         "name": "Light 2 (Center Tube Light)",
         "type": "light",
-        "roi": (740, 485, 210, 45),     # Horizontal glowing fluorescent tube
+        "roi": (740, 485, 210, 45),
         "zone_centroid": (840, 600),
         "vision_state": "OFF",
         "control_state": False
@@ -112,7 +125,7 @@ DASHBOARD_HTML = """
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background: #0f172a; color: #f8fafc; padding: 25px; }
-        header { text-align: center; margin-bottom: 30px; }
+        header { text-align: center; margin-bottom: 25px; }
         h1 { color: #38bdf8; font-size: 28px; margin-bottom: 8px; }
         p.subtitle { color: #94a3b8; font-size: 14px; }
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; max-width: 1300px; margin: 0 auto; }
@@ -130,7 +143,8 @@ DASHBOARD_HTML = """
         .btn-active:hover { background: #dc2626; }
         .btn-idle { background: #3b82f6; color: white; }
         .btn-idle:hover { background: #2563eb; }
-        .banner { background: #1e1b4b; border: 1px solid #6366f1; border-radius: 10px; padding: 15px; margin: 0 auto 25px auto; max-width: 1300px; display: flex; justify-content: space-between; align-items: center; }
+        .banner { background: #1e1b4b; border: 1px solid #6366f1; border-radius: 10px; padding: 15px; margin: 0 auto 20px auto; max-width: 1300px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+        .network-tag { background: #312e81; padding: 6px 12px; border-radius: 6px; font-size: 13px; color: #c7d2fe; border: 1px solid #4338ca; }
     </style>
 </head>
 <body>
@@ -142,9 +156,10 @@ DASHBOARD_HTML = """
     <div class="banner">
         <div>
             <strong style="color: #a5b4fc;">Live Detection Status:</strong>
-            <span id="scan-timer" style="color: #fbcfe8; margin-left: 10px;">Scanning every 10 seconds...</span>
+            <span id="scan-timer" style="color: #fbcfe8; margin-left: 8px;">Scanning every 10s...</span>
         </div>
-        <div style="font-size: 13px; color: #cbd5e1;">Connected ESP32: <code>{{ esp32_ip }}</code></div>
+        <div class="network-tag">📱 Mobile / Hotspot Link: <strong>http://{{ local_ip }}:5000</strong></div>
+        <div class="network-tag">📡 Target ESP32: <strong>{{ esp32_ip }}</strong></div>
     </div>
 
     <div class="grid" id="appliances-grid">
@@ -200,7 +215,7 @@ DASHBOARD_HTML = """
 
 @app.route("/")
 def index():
-    return render_template_string(DASHBOARD_HTML, esp32_ip=ESP32_IP)
+    return render_template_string(DASHBOARD_HTML, esp32_ip=ESP32_IP, local_ip=LOCAL_IP)
 
 @app.route("/api/status")
 def api_status():
@@ -222,15 +237,10 @@ def start_flask():
 # Start Dashboard in a background thread
 flask_thread = threading.Thread(target=start_flask, daemon=True)
 flask_thread.start()
-print("[DASHBOARD] Web Dashboard running live at http://localhost:5000")
 
 # --- VISION ON / OFF DETECTION ENGINES ---
 def detect_fan_spinning(curr_gray, prev_gray, roi):
-    """
-    Detects if fan is ON (Spinning) vs OFF (Still) using inter-frame motion energy
-    """
     x, y, w, h = roi
-    # Clamp inside frame
     fh, fw = curr_gray.shape[:2]
     x1, y1 = max(0, x), max(0, y)
     x2, y2 = min(fw, x + w), min(fh, y + h)
@@ -241,18 +251,13 @@ def detect_fan_spinning(curr_gray, prev_gray, roi):
     crop_curr = curr_gray[y1:y2, x1:x2]
     crop_prev = prev_gray[y1:y2, x1:x2]
 
-    # Absolute difference between consecutive frames inside the fan ROI
     diff = cv2.absdiff(crop_curr, crop_prev)
     _, thresh = cv2.threshold(diff, 18, 255, cv2.THRESH_BINARY)
     motion_score = np.mean(thresh)
 
-    # If motion energy > 3.5, fan blades are rotating fast
     return "ON (SPINNING)" if motion_score > 3.5 else "OFF (STILL)"
 
 def detect_light_illuminated(frame, roi):
-    """
-    Detects if light is ON (Glowing) vs OFF (Dark) using pixel luminance & threshold
-    """
     x, y, w, h = roi
     fh, fw = frame.shape[:2]
     x1, y1 = max(0, x), max(0, y)
@@ -264,17 +269,28 @@ def detect_light_illuminated(frame, roi):
     crop = frame[y1:y2, x1:x2]
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
     
-    # Calculate average luminance & top highlight percentile
     mean_val = np.mean(gray)
     bright_percentile = np.percentile(gray, 90)
 
-    # Illuminated fluorescent tubes have severe highlight saturation
     if mean_val > 175 or bright_percentile > 230:
         return "ON (GLOWING)"
     else:
         return "OFF (DARK)"
 
 # --- MAIN AI COMPUTER VISION LOOP ---
+print("\n" + "="*70)
+print(" 🚀 SMART CLASSROOM SPATIAL AI ENGINE ACTIVE")
+print("="*70)
+print(f" 💻 Local Laptop Link:     http://localhost:5000")
+print(f" 📱 Mobile / Hotspot Link:  http://{LOCAL_IP}:5000")
+print(f" 🌐 Target ESP32 Node:     {ESP32_IP}")
+print("-" * 70)
+print(" 💡 HOW TO OPEN ON MOBILE PHONE (SAME HOTSPOT / WI-FI):")
+print(f"    1. Connect your phone to this laptop's Mobile Hotspot or Wi-Fi.")
+print(f"    2. Open Chrome/Safari on your phone and go to:")
+print(f"       👉 http://{LOCAL_IP}:5000")
+print("="*70 + "\n")
+
 print("[AI SERVER] Initializing YOLO-World Model...")
 model = YOLO("yolov8s-world.pt")
 model.set_classes(["person", "ceiling fan", "tube light", "lamp", "fluorescent light"])
@@ -282,12 +298,6 @@ model.set_classes(["person", "ceiling fan", "tube light", "lamp", "fluorescent l
 cap = cv2.VideoCapture(CAMERA_SOURCE)
 window_name = "Spatial AI Smart Classroom Vision Monitor"
 cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-
-print("\n=======================================================")
-print(" SMART CLASSROOM SPATIAL AI ENGINE ACTIVE             ")
-print(" Dashboard URL: http://localhost:5000                 ")
-print(" Press 'q' or 'ESC' to exit cleanly                   ")
-print("=======================================================\n")
 
 while True:
     ret, frame = cap.read()
@@ -303,7 +313,7 @@ while True:
     time_since_last_scan = current_time - last_scan_time
     remaining_time = max(0.0, SCAN_INTERVAL_SEC - time_since_last_scan)
 
-    # 1. Real-time Physical Vision Status Detection (Runs every frame)
+    # 1. Real-time Physical Vision Status Detection (Every frame)
     with lock:
         for key, item in APPLIANCES.items():
             if item["type"] == "fan":
@@ -328,7 +338,6 @@ while True:
                 hx, hy = int((x1 + x2) / 2), int(y2)
                 detected_humans.append((hx, hy))
 
-        # Check occupancy under each appliance zone
         with lock:
             for key, item in APPLIANCES.items():
                 zx, zy = item["zone_centroid"]
@@ -341,31 +350,27 @@ while True:
 
     # 3. Render Visual Overlays on Video Feed
     with lock:
-        # Draw Appliances Bounding Boxes & Real-time Vision Status
         for key, item in APPLIANCES.items():
             x, y, w, h = item["roi"]
             is_on = "ON" in item["vision_state"]
             color = (0, 255, 0) if is_on else (80, 80, 80)
             
-            # Box around fan or tube light
             cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
             cv2.putText(frame, f"{item['name']}: {item['vision_state']}", 
                         (x, y - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
 
-            # Zone circle on seating area
             zx, zy = item["zone_centroid"]
             active_color = (0, 255, 255) if item["control_state"] else (60, 60, 60)
             cv2.circle(frame, (zx, zy), 25, active_color, 2)
 
     # Top Status Banner
     banner_bg = (20, 20, 30)
-    cv2.rectangle(frame, (10, 10), (520, 50), banner_bg, -1)
-    status_text = f"Dashboard: http://localhost:5000 | Next Scan: {remaining_time:.1f}s"
-    cv2.putText(frame, status_text, (20, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 255), 2)
+    cv2.rectangle(frame, (10, 10), (580, 50), banner_bg, -1)
+    status_text = f"Mobile: http://{LOCAL_IP}:5000 | Next Scan: {remaining_time:.1f}s"
+    cv2.putText(frame, status_text, (20, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.52, (0, 255, 255), 2)
 
     cv2.imshow(window_name, frame)
 
-    # Quit logic
     key = cv2.waitKey(20) & 0xFF
     if key in [ord('q'), ord('Q'), 27]:
         break
