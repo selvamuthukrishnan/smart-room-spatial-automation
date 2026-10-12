@@ -85,6 +85,42 @@ bool extractJsonBool(const String& json, const String& key) {
           fragment.indexOf("\"on\"") != -1 || fragment.indexOf("on") != -1);
 }
 
+// Helper to extract boolean value from an array by index: e.g. "units": [1, 0, 1] or raw [1, 0, 1]
+bool extractArrayBoolByIndex(const String& payload, const String& arrayKey, int targetIndex) {
+  int keyIdx = -1;
+  if (arrayKey.length() > 0) {
+    keyIdx = payload.indexOf("\"" + arrayKey + "\"");
+    if (keyIdx == -1) keyIdx = payload.indexOf(arrayKey);
+  } else {
+    keyIdx = payload.indexOf('[');
+  }
+  
+  if (keyIdx == -1) return false;
+
+  int bracketStart = payload.indexOf('[', keyIdx);
+  int bracketEnd   = payload.indexOf(']', bracketStart);
+  if (bracketStart == -1 || bracketEnd == -1) return false;
+
+  String arrayContent = payload.substring(bracketStart + 1, bracketEnd);
+  int currentIndex = 0;
+  int startPos = 0;
+  while (startPos < arrayContent.length()) {
+    int commaPos = arrayContent.indexOf(',', startPos);
+    String item = (commaPos == -1) ? arrayContent.substring(startPos) : arrayContent.substring(startPos, commaPos);
+    item.trim();
+    item.toLowerCase();
+
+    if (currentIndex == targetIndex) {
+      return (item == "1" || item == "true" || item.indexOf("on") != -1 || item.indexOf("\"on\"") != -1);
+    }
+
+    if (commaPos == -1) break;
+    startPos = commaPos + 1;
+    currentIndex++;
+  }
+  return false;
+}
+
 // 📡 Actively Retrieve Status from Dashboard Server (Pull Mode)
 void pollDashboard() {
   if (WiFi.status() != WL_CONNECTED || !ENABLE_DASHBOARD_POLLING) return;
@@ -98,24 +134,42 @@ void pollDashboard() {
     String payload = http.getString();
     lastCommandTime = millis();
 
-    // Check Unit 1 triggers in JSON: 'unit_1', 'unit1', 'relay_1', 'light_1', 'fan_1', 'light'
-    bool u1 = extractJsonBool(payload, "unit_1")  || 
-              extractJsonBool(payload, "unit1")   || 
-              extractJsonBool(payload, "relay_1") ||
-              extractJsonBool(payload, "light_1") ||
-              extractJsonBool(payload, "fan_1")   ||
-              extractJsonBool(payload, "light");
+    // 1. Check Unit 1 (Index 0 in array OR key-value in JSON)
+    bool u1_arr = extractArrayBoolByIndex(payload, "units", 0)  ||
+                  extractArrayBoolByIndex(payload, "fans", 0)   ||
+                  extractArrayBoolByIndex(payload, "lights", 0) ||
+                  extractArrayBoolByIndex(payload, "status", 0) ||
+                  extractArrayBoolByIndex(payload, "data", 0)   ||
+                  extractArrayBoolByIndex(payload, "", 0);
 
-    // Check Unit 2 triggers in JSON: 'unit_2', 'unit2', 'relay_2', 'light_2', 'fan_2', 'fan'
-    bool u2 = extractJsonBool(payload, "unit_2")  || 
-              extractJsonBool(payload, "unit2")   || 
-              extractJsonBool(payload, "relay_2") ||
-              extractJsonBool(payload, "light_2") ||
-              extractJsonBool(payload, "fan_2")   ||
-              extractJsonBool(payload, "fan");
+    bool u1_key = extractJsonBool(payload, "unit_1")  || 
+                  extractJsonBool(payload, "unit1")   || 
+                  extractJsonBool(payload, "relay_1") ||
+                  extractJsonBool(payload, "light_1") ||
+                  extractJsonBool(payload, "fan_1")   ||
+                  extractJsonBool(payload, "light");
+
+    bool u1 = u1_arr || u1_key;
+
+    // 2. Check Unit 2 (Index 1 in array OR key-value in JSON)
+    bool u2_arr = extractArrayBoolByIndex(payload, "units", 1)  ||
+                  extractArrayBoolByIndex(payload, "fans", 1)   ||
+                  extractArrayBoolByIndex(payload, "lights", 1) ||
+                  extractArrayBoolByIndex(payload, "status", 1) ||
+                  extractArrayBoolByIndex(payload, "data", 1)   ||
+                  extractArrayBoolByIndex(payload, "", 1);
+
+    bool u2_key = extractJsonBool(payload, "unit_2")  || 
+                  extractJsonBool(payload, "unit2")   || 
+                  extractJsonBool(payload, "relay_2") ||
+                  extractJsonBool(payload, "light_2") ||
+                  extractJsonBool(payload, "fan_2")   ||
+                  extractJsonBool(payload, "fan");
+
+    bool u2 = u2_arr || u2_key;
 
     if (u1 != unit1State || u2 != unit2State) {
-      Serial.printf("[DASHBOARD RETRIEVE] New status from dashboard -> Unit 1: %s | Unit 2: %s\n",
+      Serial.printf("[DASHBOARD RETRIEVE] New status from dashboard -> Unit 1 (Index 0): %s | Unit 2 (Index 1): %s\n",
                     u1 ? "ON" : "OFF", u2 ? "ON" : "OFF");
       setAppliances(u1, u2);
     }
@@ -154,6 +208,23 @@ void handleControl() {
 
   bool newU1 = unit1State;
   bool newU2 = unit2State;
+
+  // 0. Parse Index parameter (e.g. /control?index=0&state=on or ?i=1&state=off)
+  if (server.hasArg("index") || server.hasArg("i") || server.hasArg("idx")) {
+    int idx = -1;
+    if (server.hasArg("index")) idx = server.arg("index").toInt();
+    else if (server.hasArg("i")) idx = server.arg("i").toInt();
+    else if (server.hasArg("idx")) idx = server.arg("idx").toInt();
+
+    bool state = false;
+    if (server.hasArg("state")) state = (server.arg("state") == "on" || server.arg("state") == "1" || server.arg("state") == "true");
+    else if (server.hasArg("val")) state = (server.arg("val") == "on" || server.arg("val") == "1" || server.arg("val") == "true");
+    else if (server.hasArg("status")) state = (server.arg("status") == "on" || server.arg("status") == "1" || server.arg("status") == "true");
+
+    if (idx == 0) newU1 = state;
+    else if (idx == 1 && server.hasArg("index") && server.arg("index") == "1") newU2 = state;
+    else if (idx == 2) newU2 = state;
+  }
 
   // 1. Parse Unit 1 commands (Relay 1 -> Fan 1 + Light 1)
   if (server.hasArg("unit_1")) {

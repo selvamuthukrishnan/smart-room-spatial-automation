@@ -42,7 +42,7 @@
       <div class="flex items-center gap-2 px-2">
         <span id="hw-status-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
         <span class="text-slate-400">ESP32 IP:</span>
-        <input id="esp32-ip-input" type="text" value="http://10.46.38.116" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 font-mono text-emerald-300 focus:outline-none focus:border-emerald-500" placeholder="http://ip.address">
+        <input id="esp32-ip-input" type="text" value="http://192.168.43.125" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 font-mono text-emerald-300 focus:outline-none focus:border-emerald-500" placeholder="http://192.168.43.125">
       </div>
       <button onclick="pingEsp32()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition cursor-pointer">Ping</button>
       <button id="sim-btn" onclick="toggleSimulation()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-medium transition cursor-pointer">Demo Auto-Sim</button>
@@ -192,7 +192,7 @@
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <span class="font-bold text-sm text-white">${unit.name}</span>
-              ${unit.isPhysical ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">PHYSICAL</span>' : '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">DIGITAL TWIN</span>'}
+              ${unit.isPhysical ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">MAIN HARDWARE (${unit.gpio})</span>` : '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">DIGITAL TWIN</span>'}
             </div>
             <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${unit.active ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'}">
               ${unit.active ? '● OCCUPIED' : '○ VACANT'}
@@ -277,9 +277,35 @@
       const ip = document.getElementById("esp32-ip-input").value.trim();
       const u1 = UNITS.find(u => u.id === 1).active ? "on" : "off";
       const u2 = UNITS.find(u => u.id === 2).active ? "on" : "off";
-      const url = `${ip}/control?light=${u1}&fan=${u2}`;
-      fetch(url, { method: "GET", mode: "no-cors" }).catch(e => console.log("ESP32 network dispatch handled:", e));
+      const url = `${ip}/control?unit_1=${u1}&unit_2=${u2}&light=${u1}&fan=${u2}`;
+      fetch(url, { method: "GET", mode: "no-cors" })
+        .then(() => console.log(`[ESP32 SYNC] Sent Unit 1: ${u1}, Unit 2: ${u2} to ${ip}`))
+        .catch(e => console.log("ESP32 network dispatch handled:", e));
     }
+
+    // Global APIs for friend's ML model to update index.html directly
+    window.setUnitStatus = function(unitIndex, state) {
+      // Handles both 0-indexed (0 to 9) and 1-indexed (1 to 10)
+      const targetId = (unitIndex >= 1 && unitIndex <= 10) ? unitIndex : unitIndex + 1;
+      const unit = UNITS.find(u => u.id === targetId);
+      if (unit) {
+        unit.active = (state === true || state === 1 || state === "on");
+        renderUnits();
+        if (unit.isPhysical) dispatchEsp32Hardware();
+      }
+    };
+
+    window.setAllUnits = function(statusArray) {
+      if (Array.isArray(statusArray)) {
+        statusArray.forEach((val, idx) => {
+          if (idx < UNITS.length) {
+            UNITS[idx].active = (val === true || val === 1 || val === "on");
+          }
+        });
+        renderUnits();
+        dispatchEsp32Hardware();
+      }
+    };
 
     function pingEsp32() {
       const ip = document.getElementById("esp32-ip-input").value.trim();
