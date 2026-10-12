@@ -3,13 +3,13 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Large AI model weight files
-models/
+# Large AI model weight files (Ignore generic models, allow custom trained classroom model)
 *.pt
 *.pth
 *.bin
 *.onnx
 *.engine
+!models/classroom_cctv_yolov8n.pt
 
 # Virtual Environments
 venv/
