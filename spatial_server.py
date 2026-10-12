@@ -606,9 +606,14 @@ print(" 💡 TIP: If the camera moves, open http://localhost:5000/calibrate to")
 print("         click and adjust your appliance boxes in 5 seconds!")
 print("="*70 + "\n")
 
-print("[AI SERVER] Loading YOLO-World...")
-model = YOLO("yolov8s-world.pt")
-model.set_classes(["person", "ceiling fan", "tube light", "lamp", "fluorescent light"])
+CUSTOM_MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "classroom_cctv_yolov8n.pt")
+if os.path.exists(CUSTOM_MODEL_PATH):
+    print(f"[AI SERVER] Loading Custom Fine-Tuned Classroom CCTV Model ({CUSTOM_MODEL_PATH})...")
+    model = YOLO(CUSTOM_MODEL_PATH)
+else:
+    print("[AI SERVER] Loading YOLO-World fallback...")
+    model = YOLO("yolov8s-world.pt")
+    model.set_classes(["person", "ceiling fan", "tube light", "lamp", "fluorescent light"])
 
 cap = cv2.VideoCapture(CAMERA_SOURCE)
 window_name = "Spatial AI Smart Classroom Vision Monitor"
@@ -617,6 +622,11 @@ cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
 while True:
     ret, frame = cap.read()
     if not ret or frame is None:
+        # If camera source is a video file, loop back to beginning
+        if isinstance(CAMERA_SOURCE, str) and os.path.exists(CAMERA_SOURCE):
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            time.sleep(0.05)
+            continue
         time.sleep(0.1)
         continue
 
