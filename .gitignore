@@ -33,3 +33,4 @@ dataset/
 cctv_dataset_frames/
 *.zip
 runs/
+test_result.jpg

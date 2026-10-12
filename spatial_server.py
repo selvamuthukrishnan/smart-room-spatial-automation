@@ -30,7 +30,19 @@ def get_local_ip():
 LOCAL_IP = get_local_ip()
 
 # --- 📱 CAMERA & ESP32 CONFIGURATION ---
-CAMERA_SOURCE = 0  # 0 for webcam or "http://<PHONE_IP>:8080/video"
+# Default to webcam (0), or pass video path via CLI: python spatial_server.py "path/to/video.mp4"
+import sys
+CAMERA_SOURCE = 0
+for arg in sys.argv[1:]:
+    if arg.endswith((".mp4", ".avi", ".mov")) and os.path.exists(arg):
+        CAMERA_SOURCE = os.path.abspath(arg)
+        print(f"[CONFIG] Using Video File Source: {CAMERA_SOURCE}")
+        break
+    elif arg.isdigit():
+        CAMERA_SOURCE = int(arg)
+        print(f"[CONFIG] Using Camera Index: {CAMERA_SOURCE}")
+        break
+
 ESP32_IP = "http://192.168.43.125"
 
 # --- 🎯 LOAD APPLIANCES CONFIGURATION ---
