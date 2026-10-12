@@ -24,13 +24,14 @@
 </head>
 <body class="bg-slate-950 text-slate-100 antialiased min-h-screen p-4 md:p-6 font-sans">
 
+  <!-- TOP HEADER & CONTROLS -->
   <header class="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between pb-6 border-b border-slate-800 gap-4">
     <div>
       <div class="flex items-center gap-3">
         <span class="text-2xl">🏠</span>
         <h1 class="text-xl md:text-2xl font-bold tracking-tight text-white">Spatial AI Smart Room Automation</h1>
-        <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 pulse-live">
-          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> LIVE SYSTEM
+        <span id="ai-badge-status" class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 pulse-live">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> <span id="ai-badge-text">AI VISION STANDBY</span>
         </span>
       </div>
       <p class="text-sm text-slate-400 mt-1">
@@ -38,18 +39,25 @@
       </p>
     </div>
 
+    <!-- HARDWARE CONNECTION BAR -->
     <div class="flex items-center gap-3 bg-slate-900 p-2 rounded-xl border border-slate-800 text-xs">
       <div class="flex items-center gap-2 px-2">
         <span id="hw-status-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
         <span class="text-slate-400">ESP32 IP:</span>
-        <input id="esp32-ip-input" type="text" value="http://192.168.43.125" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 font-mono text-emerald-300 focus:outline-none focus:border-emerald-500" placeholder="http://192.168.43.125">
+        <input id="esp32-ip-input" type="text" value="http://192.168.43.125" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 font-mono text-emerald-300 focus:outline-none focus:border-emerald-500 w-36">
       </div>
-      <button onclick="pingEsp32()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition cursor-pointer">Ping</button>
-      <button id="sim-btn" onclick="toggleSimulation()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-medium transition cursor-pointer">Demo Auto-Sim</button>
+      <button onclick="pingEsp32()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition cursor-pointer">
+        Ping
+      </button>
+      <button id="sim-btn" onclick="toggleSimulation()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-medium transition cursor-pointer">
+        Demo Auto-Sim
+      </button>
     </div>
   </header>
 
+  <!-- KEY METRICS BANNER -->
   <section class="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 my-6">
+    <!-- Metric 1: Active Workstations -->
     <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
       <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Active Workstations</span>
       <div class="flex items-baseline justify-between mt-2">
@@ -61,6 +69,7 @@
       </div>
     </div>
 
+    <!-- Metric 2: Live Energy Saved -->
     <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
       <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Live Energy Saved</span>
       <div class="flex items-baseline justify-between mt-2">
@@ -70,6 +79,7 @@
       <p class="text-xs text-slate-400 mt-2">Compared to continuous whole-room power</p>
     </div>
 
+    <!-- Metric 3: Power Consumption -->
     <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
       <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Current Power Load</span>
       <div class="flex items-baseline justify-between mt-2">
@@ -79,47 +89,69 @@
       <p class="text-xs text-slate-400 mt-2">720 Watts currently conserved</p>
     </div>
 
+    <!-- Metric 4: Real-Time AI Vision Scanner -->
     <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
       <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">YOLO-World Scanner</span>
       <div class="flex items-baseline justify-between mt-2">
-        <span id="metric-scan-timer" class="text-3xl font-extrabold text-sky-400">7.2s</span>
-        <span class="text-xs text-sky-400/80 font-semibold">10s Interval</span>
+        <span id="metric-scan-timer" class="text-3xl font-extrabold text-emerald-400">LIVE</span>
+        <span class="text-xs text-emerald-400/80 font-semibold">&bull; Real-Time</span>
       </div>
-      <p class="text-xs text-slate-400 mt-2">Open-vocabulary vision scan cadence</p>
+      <p class="text-xs text-slate-400 mt-2">Continuous zero-latency vision inference</p>
     </div>
   </section>
 
+  <!-- MAIN SECTION: 10 WORKSTATION GRID & ROOM MAP -->
   <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- 10 WORKSTATION UNITS GRID -->
     <div class="lg:col-span-2 space-y-4">
       <div class="flex items-center justify-between">
-        <h2 class="text-base font-semibold tracking-tight text-white flex items-center gap-2"><span>🖥️</span> Workstation Units (Fan + Light Pairs)</h2>
+        <h2 class="text-base font-semibold tracking-tight text-white flex items-center gap-2">
+          <span>🖥️</span> Workstation Units (Fan + Light Pairs)
+        </h2>
         <span class="text-xs text-slate-400">Click any card to toggle occupancy</span>
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5" id="units-container"></div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5" id="units-container">
+        <!-- Javascript populates 10 cards here -->
+      </div>
     </div>
 
+    <!-- RIGHT COLUMN: HARDWARE CONTROLS & DIGITAL TWIN FLOOR PLAN -->
     <div class="space-y-6">
+
+      <!-- PHYSICAL TESTBED CONTROLS -->
       <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
         <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-          <h3 class="font-semibold text-sm text-white flex items-center gap-2"><span>🔌</span> Physical 2-Channel Relay Testbed</h3>
-          <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Desk Hardware</span>
+          <h3 class="font-semibold text-sm text-white flex items-center gap-2">
+            <span>🔌</span> Physical 2-Channel Relay Testbed
+          </h3>
+          <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            Desk Hardware
+          </span>
         </div>
 
         <div class="space-y-3.5 mt-4">
+          <!-- Unit 1 Physical -->
           <div class="flex items-center justify-between p-3 rounded-lg bg-slate-950 border border-slate-800">
             <div>
               <div class="font-medium text-sm text-white">Unit 01 (Relay Channel 1)</div>
               <div class="text-xs text-slate-400">GPIO 25 &bull; 5V Light + Fan</div>
             </div>
-            <button id="hw-toggle-1" onclick="togglePhysicalRelay(1)" class="px-4 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer bg-emerald-600 text-white">FORCE ON</button>
+            <button id="hw-toggle-1" onclick="togglePhysicalRelay(1)" class="px-4 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer bg-emerald-600 text-white">
+              FORCE ON
+            </button>
           </div>
 
+          <!-- Unit 2 Physical -->
           <div class="flex items-center justify-between p-3 rounded-lg bg-slate-950 border border-slate-800">
             <div>
               <div class="font-medium text-sm text-white">Unit 02 (Relay Channel 2)</div>
               <div class="text-xs text-slate-400">GPIO 26 &bull; 5V Light + Fan</div>
             </div>
-            <button id="hw-toggle-2" onclick="togglePhysicalRelay(2)" class="px-4 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer bg-slate-800 text-slate-400">FORCE OFF</button>
+            <button id="hw-toggle-2" onclick="togglePhysicalRelay(2)" class="px-4 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer bg-slate-800 text-slate-400">
+              FORCE OFF
+            </button>
           </div>
         </div>
 
@@ -129,24 +161,58 @@
         </div>
       </div>
 
+      <!-- LIVE AI CAMERA STREAM -->
       <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
         <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-          <h3 class="font-semibold text-sm text-white flex items-center gap-2"><span>📐</span> Room Spatial Zone Layout</h3>
+          <h3 class="font-semibold text-sm text-white flex items-center gap-2">
+            <span>📹</span> Live AI Camera Stream
+          </h3>
+          <span id="stream-live-pill" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-700/50 text-slate-400 border border-slate-700">
+            STANDBY
+          </span>
+        </div>
+
+        <div class="mt-4 relative rounded-lg overflow-hidden bg-slate-950 border border-slate-800 aspect-video flex items-center justify-center">
+          <img id="live-stream-img" src="http://localhost:5000/video_feed" alt="Live AI Camera Feed" class="w-full h-full object-cover">
+          <div id="stream-offline-overlay" class="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-slate-950/90">
+            <span class="text-3xl mb-1">📷</span>
+            <span class="text-xs font-semibold text-slate-300">Live AI Stream Standby</span>
+            <span class="text-[10px] text-slate-500 mt-1">Start spatial_server.py to stream phone camera</span>
+          </div>
+        </div>
+
+        <div class="mt-3 flex items-center justify-between text-[11px] text-slate-400">
+          <span>Vision: <span class="text-sky-400 font-mono">YOLO-World (10s Scan)</span></span>
+          <span id="humans-detected-tag" class="text-emerald-400 font-mono">0 Humans Detected</span>
+        </div>
+      </div>
+
+      <!-- DIGITAL TWIN SPATIAL RADAR / ROOM FLOOR PLAN -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <h3 class="font-semibold text-sm text-white flex items-center gap-2">
+            <span>📐</span> Room Spatial Zone Layout
+          </h3>
           <span class="text-xs text-slate-400">Camera FOV</span>
         </div>
 
+        <!-- 2D Canvas / CSS Grid Visualizer -->
         <div class="relative bg-slate-950 rounded-lg p-4 border border-slate-800 mt-4 aspect-video flex flex-col justify-between">
+          <!-- Camera Icon & FOV Lines -->
           <div class="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-center">
             <span class="text-sm">📷</span>
             <span class="text-[10px] text-sky-400 font-mono">10s Camera</span>
           </div>
 
+          <!-- Grid of 10 desks -->
           <div class="grid grid-cols-5 gap-2 mt-8 mb-2">
+            <!-- Row 1 -->
             <div id="radar-1" class="h-9 rounded border border-emerald-500/50 bg-emerald-500/10 flex items-center justify-center text-[10px] font-bold text-emerald-400">U1*</div>
             <div id="radar-2" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U2*</div>
             <div id="radar-3" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U3</div>
             <div id="radar-4" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U4</div>
             <div id="radar-5" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U5</div>
+            <!-- Row 2 -->
             <div id="radar-6" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U6</div>
             <div id="radar-7" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U7</div>
             <div id="radar-8" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U8</div>
@@ -161,10 +227,12 @@
           </div>
         </div>
       </div>
+
     </div>
   </main>
 
   <script>
+    // State of all 10 Workstation Units
     const UNITS = [
       { id: 1, name: "Unit 01 (Front Left)", isPhysical: true, gpio: "GPIO 25", active: true },
       { id: 2, name: "Unit 02 (Front Center)", isPhysical: true, gpio: "GPIO 26", active: false },
@@ -181,24 +249,29 @@
     let simulationInterval = null;
     let scanSecondsRemaining = 10.0;
 
+    // Render Workstation Cards
     function renderUnits() {
       const container = document.getElementById("units-container");
       container.innerHTML = "";
+
       UNITS.forEach(unit => {
         const card = document.createElement("div");
         card.className = `p-4 rounded-xl border transition-all duration-300 cursor-pointer ${unit.active ? 'unit-active' : 'unit-idle'}`;
         card.onclick = () => toggleUnit(unit.id);
+
         card.innerHTML = `
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <span class="font-bold text-sm text-white">${unit.name}</span>
-              ${unit.isPhysical ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">MAIN HARDWARE (${unit.gpio})</span>` : '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">DIGITAL TWIN</span>'}
+              ${unit.isPhysical ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">PHYSICAL</span>' : '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400">VIRTUAL</span>'}
             </div>
             <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${unit.active ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'}">
               ${unit.active ? '● OCCUPIED' : '○ VACANT'}
             </span>
           </div>
+
           <div class="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-700/50">
+            <!-- Appliance 1: Light -->
             <div class="flex items-center gap-2 text-xs">
               <span class="text-base">${unit.active ? '💡' : '🌑'}</span>
               <div>
@@ -206,6 +279,8 @@
                 <div class="font-semibold ${unit.active ? 'text-emerald-400' : 'text-slate-400'}">${unit.active ? 'ACTIVE (ON)' : 'OFF'}</div>
               </div>
             </div>
+
+            <!-- Appliance 2: Fan -->
             <div class="flex items-center gap-2 text-xs">
               <span class="text-base ${unit.active ? 'animate-spin' : ''}">🌀</span>
               <div>
@@ -217,6 +292,7 @@
         `;
         container.appendChild(card);
 
+        // Sync floor plan radar
         const radarEl = document.getElementById(`radar-${unit.id}`);
         if (radarEl) {
           if (unit.active) {
@@ -236,6 +312,8 @@
       if (unit) {
         unit.active = !unit.active;
         renderUnits();
+
+        // If physical unit, dispatch HTTP command to ESP32!
         if (unit.isPhysical) {
           dispatchEsp32Hardware();
         }
@@ -249,6 +327,7 @@
     function syncPhysicalButtons() {
       const u1 = UNITS.find(u => u.id === 1);
       const u2 = UNITS.find(u => u.id === 2);
+
       const btn1 = document.getElementById("hw-toggle-1");
       const btn2 = document.getElementById("hw-toggle-2");
 
@@ -265,7 +344,7 @@
     function updateMetrics() {
       const activeCount = UNITS.filter(u => u.active).length;
       const energySavedPercent = Math.round((1 - (activeCount / 10)) * 100);
-      const powerWatts = activeCount * 90;
+      const powerWatts = activeCount * 90; // Each unit consumes approx 90W (fan + light)
 
       document.getElementById("metric-active-units").innerText = activeCount;
       document.getElementById("bar-active-units").style.width = `${(activeCount / 10) * 100}%`;
@@ -273,19 +352,20 @@
       document.getElementById("metric-power-watts").innerText = `${powerWatts} W`;
     }
 
+    // Dispatch REST API to actual ESP32
     function dispatchEsp32Hardware() {
       const ip = document.getElementById("esp32-ip-input").value.trim();
       const u1 = UNITS.find(u => u.id === 1).active ? "on" : "off";
       const u2 = UNITS.find(u => u.id === 2).active ? "on" : "off";
+
       const url = `${ip}/control?unit_1=${u1}&unit_2=${u2}&light=${u1}&fan=${u2}`;
       fetch(url, { method: "GET", mode: "no-cors" })
         .then(() => console.log(`[ESP32 SYNC] Sent Unit 1: ${u1}, Unit 2: ${u2} to ${ip}`))
         .catch(e => console.log("ESP32 network dispatch handled:", e));
     }
 
-    // Global APIs for friend's ML model to update index.html directly
+    // Global APIs for external ML models or automation scripts
     window.setUnitStatus = function(unitIndex, state) {
-      // Handles both 0-indexed (0 to 9) and 1-indexed (1 to 10)
       const targetId = (unitIndex >= 1 && unitIndex <= 10) ? unitIndex : unitIndex + 1;
       const unit = UNITS.find(u => u.id === targetId);
       if (unit) {
@@ -313,7 +393,8 @@
       dot.className = "w-2.5 h-2.5 rounded-full bg-amber-400";
 
       fetch(`${ip}/status`, { method: "GET" })
-        .then(() => {
+        .then(res => res.json())
+        .then(data => {
           dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
         })
         .catch(() => {
@@ -332,6 +413,7 @@
         btn.innerText = "Stop Sim";
         btn.className = "px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-medium transition cursor-pointer";
         simulationInterval = setInterval(() => {
+          // Randomly toggle 1 to 2 random units
           const randomIndex = Math.floor(Math.random() * UNITS.length);
           UNITS[randomIndex].active = !UNITS[randomIndex].active;
           renderUnits();
@@ -342,14 +424,116 @@
       }
     }
 
+    // 10s Timer Countdown (runs locally when offline, or synced when connected)
     setInterval(() => {
-      scanSecondsRemaining -= 0.1;
-      if (scanSecondsRemaining <= 0) {
-        scanSecondsRemaining = 10.0;
+      if (!isAiServerConnected) {
+        scanSecondsRemaining -= 0.1;
+        if (scanSecondsRemaining <= 0) {
+          scanSecondsRemaining = 10.0;
+        }
+        document.getElementById("metric-scan-timer").innerText = `${scanSecondsRemaining.toFixed(1)}s`;
       }
-      document.getElementById("metric-scan-timer").innerText = `${scanSecondsRemaining.toFixed(1)}s`;
     }, 100);
 
+    // --- 🤖 REAL-TIME AI VISION & DIGITAL TWIN SYNC ENGINE ---
+    let isAiServerConnected = false;
+    const API_BASE = (window.location.port === "5000") ? "" : "http://localhost:5000";
+
+    async function pollAiServer() {
+      // If user is currently running manual demo auto-simulation, let the sim take priority
+      if (simulationInterval) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/status`, { cache: "no-store" });
+        if (!res.ok) throw new Error("Server not responding");
+        const data = await res.json();
+
+        // 1. Connection established
+        if (!isAiServerConnected) {
+          isAiServerConnected = true;
+          const badge = document.getElementById("ai-badge-status");
+          if (badge) {
+            badge.className = "px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 pulse-live";
+          }
+          const badgeText = document.getElementById("ai-badge-text");
+          if (badgeText) badgeText.innerText = "AI VISION LIVE";
+
+          const streamPill = document.getElementById("stream-live-pill");
+          if (streamPill) {
+            streamPill.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+            streamPill.innerText = "LIVE STREAM";
+          }
+          const streamImg = document.getElementById("live-stream-img");
+          if (streamImg) streamImg.src = `${API_BASE}/video_feed`;
+          const overlay = document.getElementById("stream-offline-overlay");
+          if (overlay) overlay.classList.add("hidden");
+        }
+
+        // 2. Sync Unit 1 & Unit 2 directly from YOLO-World Detection
+        let stateChanged = false;
+        if (data.unit_1 !== undefined) {
+          const u1 = UNITS.find(u => u.id === 1);
+          if (u1 && u1.active !== data.unit_1.active) {
+            u1.active = data.unit_1.active;
+            stateChanged = true;
+          }
+        }
+        if (data.unit_2 !== undefined) {
+          const u2 = UNITS.find(u => u.id === 2);
+          if (u2 && u2.active !== data.unit_2.active) {
+            u2.active = data.unit_2.active;
+            stateChanged = true;
+          }
+        }
+
+        // 3. Sync Humans Detected metric
+        const humanTag = document.getElementById("humans-detected-tag");
+        if (humanTag && data.humans_detected !== undefined) {
+          humanTag.innerText = `${data.humans_detected} Human${data.humans_detected === 1 ? '' : 's'} Detected`;
+        }
+
+        // 4. Sync Scan status
+        const timerEl = document.getElementById("metric-scan-timer");
+        if (timerEl) {
+          timerEl.innerText = (data.scan_seconds_remaining === "LIVE" || data.mode === "REAL-TIME") ? "LIVE" : `${data.scan_seconds_remaining}s`;
+        }
+
+        // 5. Sync ESP32 IP
+        if (data.esp32_ip) {
+          const ipInput = document.getElementById("esp32-ip-input");
+          if (ipInput && ipInput.value !== data.esp32_ip) {
+            ipInput.value = data.esp32_ip;
+          }
+        }
+
+        if (stateChanged) {
+          renderUnits();
+        }
+      } catch (err) {
+        if (isAiServerConnected) {
+          isAiServerConnected = false;
+          const badge = document.getElementById("ai-badge-status");
+          if (badge) {
+            badge.className = "px-2.5 py-0.5 text-xs font-semibold rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1.5";
+          }
+          const badgeText = document.getElementById("ai-badge-text");
+          if (badgeText) badgeText.innerText = "STANDALONE DEMO";
+
+          const streamPill = document.getElementById("stream-live-pill");
+          if (streamPill) {
+            streamPill.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-700/50 text-slate-400 border border-slate-700";
+            streamPill.innerText = "STANDBY";
+          }
+          const overlay = document.getElementById("stream-offline-overlay");
+          if (overlay) overlay.classList.remove("hidden");
+        }
+      }
+    }
+
+    // Poll AI Server every 500ms for real-time reactivity
+    setInterval(pollAiServer, 500);
+
+    // Initial Render
     renderUnits();
   </script>
 </body>

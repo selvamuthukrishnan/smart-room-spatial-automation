@@ -74,10 +74,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"status": "ok", "message": "State updated"}).encode("utf-8"))
             return
 
-        # 3. Serve dashboard.html
-        if path in ["/", "/dashboard", "/dashboard.html"]:
-            dashboard_file = os.path.join(os.path.dirname(__file__), "dashboard.html")
-            if os.path.exists(dashboard_file):
+        # 3. Serve dashboard (docs/index.html or index.html)
+        if path in ["/", "/dashboard", "/dashboard.html", "/index.html"]:
+            candidate_files = [
+                os.path.join(os.path.dirname(__file__), "docs", "index.html"),
+                os.path.join(os.path.dirname(__file__), "index.html"),
+                os.path.join(os.path.dirname(__file__), "dashboard.html")
+            ]
+            dashboard_file = next((f for f in candidate_files if os.path.exists(f)), None)
+            if dashboard_file:
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html")
                 self.end_headers()
@@ -86,7 +91,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             else:
                 self.send_response(404)
                 self.end_headers()
-                self.wfile.write(b"dashboard.html not found")
+                self.wfile.write(b"Dashboard index.html not found")
             return
 
         # Fallback 404
