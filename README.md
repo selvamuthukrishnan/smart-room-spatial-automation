@@ -95,15 +95,23 @@ requests.get(f"{ESP32_IP}/control?index=1&state=off")  # Relay 2 (Unit 2) OFF
 
 ## 📁 Repository Structure
 ```
-├── esp32_prototype_controller/
-│   └── esp32_prototype_controller.ino # ESP32 firmware (controls Relays 1 & 2 for Units 1 & 2)
 ├── index.html                         # Primary Digital Twin dashboard with live ESP32 sync
-├── dashboard.html                     # Standalone dashboard mirror
-├── dashboard_server.py                # Optional local Python HTTP server for index.html & API
-├── spatial_server.py                  # Computer vision proximity scanner (ML baseline)
+├── spatial_server.py                  # Computer vision spatial AI model (friend's ML engine)
 ├── run_spatial_server.bat             # 1-Click launcher for local testing
-├── circuit_diagram.jpg                # Hardware connection schematic
-├── dc_prototype_pin_diagram.jpg       # 5V safe DC prototype pinout diagram
+├── dashboard_server.py                # Optional local Python HTTP bridge server
+├── firmware/                          # Microcontroller code for all platforms
+│   ├── esp32_prototype_controller/    # Active ESP32 firmware (Units 1 & 2 on Relays 1 & 2)
+│   ├── esp32_cam_smart_room/          # Standalone ESP32-CAM firmware
+│   ├── esp32_smart_room/              # 2-IR doorway counter prototype firmware
+│   └── smart_room_controller/         # Arduino Uno legacy prototype firmware
+├── PIN_DIAGRAMS/                      # Hardware schematics, circuit and pinout diagrams
+│   ├── circuit_diagram.jpg
+│   ├── dc_prototype_pin_diagram.jpg
+│   ├── esp32_cam_circuit_diagram.jpg
+│   └── spatial_ai_pin_diagram.jpg
+├── Report/                            # Technical reports & generation tool
+├── Saravanan/                         # Engineering log & architecture overview
+├── docs/                              # GitHub Pages live deployment mirror
 └── WIRING_AND_SETUP.md                # Step-by-step wiring and common ground guide
 ```
 
@@ -112,7 +120,7 @@ requests.get(f"{ESP32_IP}/control?index=1&state=off")  # Relay 2 (Unit 2) OFF
 ## 💻 Running the Project
 
 ### 1. Flash the ESP32:
-1. Open `esp32_prototype_controller/esp32_prototype_controller.ino` in Arduino IDE.
+1. Open `firmware/esp32_prototype_controller/esp32_prototype_controller.ino` in Arduino IDE.
 2. Enter your Wi-Fi / Hotspot name (`ssid`) and password (`password`).
 3. Upload to your ESP32 board (**DOIT ESP32 DEVKIT V1**) at **115200 baud**.
 4. Check the Serial Monitor for the assigned IP address (e.g. `http://192.168.43.125`).

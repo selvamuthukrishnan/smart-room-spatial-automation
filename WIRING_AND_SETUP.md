@@ -1,6 +1,6 @@
 # 📦 Cardboard Mini Project: Wiring & Connection Guide
 
-![Circuit Diagram](file:///d:/Projects/Smart%20Home/circuit_diagram.jpg)
+![Circuit Diagram](PIN_DIAGRAMS/circuit_diagram.jpg)
 
 ---
 

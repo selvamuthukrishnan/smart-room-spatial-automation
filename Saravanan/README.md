@@ -93,7 +93,7 @@ During the initial hardware commissioning, the ESP32 failed to establish an IP c
 
 ## 💻 4. Firmware & Software Architecture
 
-Saravanan guided the design of the ESP32 firmware ([`esp32_prototype_controller.ino`](file:///c:/Users/saravanan%20s/OneDrive/Documents/GitHub/smart-room-spatial-automation/esp32_prototype_controller/esp32_prototype_controller.ino)) to be robust, fault-tolerant, and versatile.
+Saravanan guided the design of the ESP32 firmware ([`esp32_prototype_controller.ino`](file:///c:/Users/saravanan%20s/OneDrive/Documents/GitHub/smart-room-spatial-automation/firmware/esp32_prototype_controller/esp32_prototype_controller.ino)) to be robust, fault-tolerant, and versatile.
 
 ### 4.1 Inbound HTTP REST Server
 The ESP32 runs a local HTTP server listening on port 80:

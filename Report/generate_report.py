@@ -7,6 +7,20 @@ from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
 from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import qn, nsdecls
 
+def resolve_diagram_path(filename):
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        filename,
+        os.path.join(script_dir, filename),
+        os.path.join(script_dir, "PIN_DIAGRAMS", filename),
+        os.path.join(script_dir, "..", "PIN_DIAGRAMS", filename),
+        os.path.join("PIN_DIAGRAMS", filename)
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return filename
+
 def create_report():
     doc = docx.Document()
     
@@ -204,12 +218,13 @@ def create_report():
     run.font.size = Pt(12)
     run.font.bold = True
 
-    if os.path.exists('college_logo.jpg'):
+    logo_path = resolve_diagram_path('college_logo.jpg')
+    if os.path.exists(logo_path):
         p_img = doc.add_paragraph()
         p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p_img.paragraph_format.space_before = Pt(8)
         p_img.paragraph_format.space_after = Pt(12)
-        p_img.add_run().add_picture('college_logo.jpg', width=Inches(1.65))
+        p_img.add_run().add_picture(logo_path, width=Inches(1.65))
 
     p_col = doc.add_paragraph()
     p_col.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -1723,12 +1738,13 @@ def run_spatial_scanner():
         space_after=4
     )
 
-    if os.path.exists('circuit_diagram.jpg'):
+    img1_path = resolve_diagram_path('circuit_diagram.jpg')
+    if os.path.exists(img1_path):
         p_img1 = doc.add_paragraph()
         p_img1.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p_img1.paragraph_format.space_before = Pt(4)
         p_img1.paragraph_format.space_after = Pt(4)
-        p_img1.add_run().add_picture('circuit_diagram.jpg', width=Inches(5.2))
+        p_img1.add_run().add_picture(img1_path, width=Inches(5.2))
 
     p_cap_f1 = doc.add_paragraph()
     p_cap_f1.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -1759,12 +1775,13 @@ def run_spatial_scanner():
         space_after=4
     )
 
-    if os.path.exists('esp32_cam_circuit_diagram.jpg'):
+    img2_path = resolve_diagram_path('esp32_cam_circuit_diagram.jpg')
+    if os.path.exists(img2_path):
         p_img2 = doc.add_paragraph()
         p_img2.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p_img2.paragraph_format.space_before = Pt(4)
         p_img2.paragraph_format.space_after = Pt(4)
-        p_img2.add_run().add_picture('esp32_cam_circuit_diagram.jpg', width=Inches(5.2))
+        p_img2.add_run().add_picture(img2_path, width=Inches(5.2))
 
     p_cap_f2 = doc.add_paragraph()
     p_cap_f2.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -1795,12 +1812,13 @@ def run_spatial_scanner():
         space_after=4
     )
 
-    if os.path.exists('dc_prototype_pin_diagram.jpg'):
+    img3_path = resolve_diagram_path('dc_prototype_pin_diagram.jpg')
+    if os.path.exists(img3_path):
         p_img3 = doc.add_paragraph()
         p_img3.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p_img3.paragraph_format.space_before = Pt(4)
         p_img3.paragraph_format.space_after = Pt(4)
-        p_img3.add_run().add_picture('dc_prototype_pin_diagram.jpg', width=Inches(4.8))
+        p_img3.add_run().add_picture(img3_path, width=Inches(4.8))
 
     p_cap_f3 = doc.add_paragraph()
     p_cap_f3.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -1859,12 +1877,13 @@ def run_spatial_scanner():
         space_after=4
     )
 
-    if os.path.exists('spatial_ai_pin_diagram.jpg'):
+    img4_path = resolve_diagram_path('spatial_ai_pin_diagram.jpg')
+    if os.path.exists(img4_path):
         p_img4 = doc.add_paragraph()
         p_img4.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p_img4.paragraph_format.space_before = Pt(4)
         p_img4.paragraph_format.space_after = Pt(4)
-        p_img4.add_run().add_picture('spatial_ai_pin_diagram.jpg', width=Inches(5.0))
+        p_img4.add_run().add_picture(img4_path, width=Inches(5.0))
 
     p_cap_f4 = doc.add_paragraph()
     p_cap_f4.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -2171,7 +2190,7 @@ def run_spatial_scanner():
         r_ref.font.name = 'Times New Roman'
         r_ref.font.size = Pt(9.5)
 
-    output_path = r"Smart_Room_Spatial_Automation_Project_Report.docx"
+    output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Smart_Room_Spatial_Automation_Project_Report.docx")
     doc.save(output_path)
     print(f"Report generated successfully: {output_path}")
 
