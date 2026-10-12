@@ -20,3 +20,15 @@ env/
 .env
 .DS_Store
 Thumbs.db
+
+# Video files & Surveillance Footage (Large Media)
+*.mp4
+*.avi
+*.mov
+*.mkv
+models/Classroom Video/
+
+# Dataset folders & archives
+dataset/
+cctv_dataset_frames/
+*.zip
