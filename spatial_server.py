@@ -30,19 +30,27 @@ def get_local_ip():
 LOCAL_IP = get_local_ip()
 
 # --- 📱 CAMERA & ESP32 CONFIGURATION ---
-# Default to webcam (0), or pass video path via CLI: python spatial_server.py "path/to/video.mp4"
 import sys
-CAMERA_SOURCE = 0
+DEFAULT_DEMO_VIDEO = os.path.join(os.path.dirname(__file__), "models", "Classroom Video", "test_demo_clip.mp4")
+
+# Defaults to Classroom test video if available, otherwise webcam 0
+if os.path.exists(DEFAULT_DEMO_VIDEO):
+    CAMERA_SOURCE = DEFAULT_DEMO_VIDEO
+else:
+    CAMERA_SOURCE = 0
+
 for arg in sys.argv[1:]:
-    if arg.endswith((".mp4", ".avi", ".mov")) and os.path.exists(arg):
+    if arg in ["--webcam", "-w", "0", "--cam"]:
+        CAMERA_SOURCE = 0
+        break
+    elif arg.endswith((".mp4", ".avi", ".mov")) and os.path.exists(arg):
         CAMERA_SOURCE = os.path.abspath(arg)
-        print(f"[CONFIG] Using Video File Source: {CAMERA_SOURCE}")
         break
     elif arg.isdigit():
         CAMERA_SOURCE = int(arg)
-        print(f"[CONFIG] Using Camera Index: {CAMERA_SOURCE}")
         break
 
+print(f"[AI SERVER] Active Camera/Video Source: {CAMERA_SOURCE}")
 ESP32_IP = "http://192.168.43.125"
 
 # --- 🎯 LOAD APPLIANCES CONFIGURATION ---
@@ -84,10 +92,11 @@ camera_shift_x = 0
 camera_shift_y = 0
 lock = threading.Lock()
 PROXIMITY_RADIUS = 280
-SCAN_INTERVAL_SEC = 10.0
+SCAN_INTERVAL_SEC = 0.0 # Live continuous detection
 last_scan_time = 0
+last_esp_send_time = 0
 humans_detected_count = 0
-remaining_time_global = 10.0
+remaining_time_global = 0.0
 
 # --- INITIALIZE FLASK SERVER ---
 app = Flask(__name__)
@@ -628,9 +637,16 @@ else:
     model.set_classes(["person", "ceiling fan", "tube light", "lamp", "fluorescent light"])
 
 cap = cv2.VideoCapture(CAMERA_SOURCE)
+if not cap.isOpened() and os.path.exists(DEFAULT_DEMO_VIDEO):
+    print(f"[AI SERVER] Warning: Could not open {CAMERA_SOURCE}. Falling back to demo video: {DEFAULT_DEMO_VIDEO}")
+    CAMERA_SOURCE = DEFAULT_DEMO_VIDEO
+    cap = cv2.VideoCapture(CAMERA_SOURCE)
+
 window_name = "Spatial AI Smart Classroom Vision Monitor"
 cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+cv2.resizeWindow(window_name, 960, 540)
 
+frame_idx = 0
 while True:
     ret, frame = cap.read()
     if not ret or frame is None:
@@ -641,6 +657,8 @@ while True:
             continue
         time.sleep(0.1)
         continue
+
+    frame_idx += 1
 
     fh, fw = frame.shape[:2]
     curr_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -686,40 +704,59 @@ while True:
 
     prev_gray_frame = curr_gray.copy()
 
-    # 2. 10-Second Spatial Proximity Scan (Human Detection)
-    if time_since_last_scan >= SCAN_INTERVAL_SEC:
-        last_scan_time = current_time
-        results = model(frame, verbose=False)[0]
-        detected_humans = []
+    # 2. Real-Time Human Detection on Every Frame (Continuous Live Vision)
+    results = model(frame, verbose=False)[0]
+    detected_humans = []
+    current_human_boxes = []
 
-        for box in results.boxes:
-            label = results.names[int(box.cls[0])].lower()
-            if "person" in label and float(box.conf[0]) > 0.28:
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                hx, hy = int((x1 + x2) / 2), int(y2)
-                detected_humans.append((hx, hy))
+    for box in results.boxes:
+        cls_id = int(box.cls[0])
+        label = results.names[cls_id].lower() if cls_id in results.names else ""
+        conf = float(box.conf[0])
+        if ("person" in label or cls_id == 0) and conf > 0.28:
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            hx, hy = int((x1 + x2) / 2), int(y2)
+            detected_humans.append((hx, hy))
+            current_human_boxes.append((x1, y1, x2, y2, conf))
 
-        with lock:
-            humans_detected_count = len(detected_humans)
-            for i, (key, item) in enumerate(APPLIANCES.items()):
-                zx = item["zone_centroid"][0] + camera_shift_x
-                zy = item["zone_centroid"][1] + camera_shift_y
-                occupied = False
-                for (hx, hy) in detected_humans:
-                    if math.hypot(hx - zx, hy - zy) < PROXIMITY_RADIUS:
-                        occupied = True
-                        break
-                item["control_state"] = occupied
-                if i < 10:
-                    WORKSTATION_UNITS[i] = occupied
+    with lock:
+        humans_detected_count = len(detected_humans)
+        active_count = 0
+        for i, (key, item) in enumerate(APPLIANCES.items()):
+            zx = item["zone_centroid"][0] + camera_shift_x
+            zy = item["zone_centroid"][1] + camera_shift_y
+            occupied = False
+            for (hx, hy) in detected_humans:
+                if math.hypot(hx - zx, hy - zy) < PROXIMITY_RADIUS:
+                    occupied = True
+                    break
+            item["control_state"] = occupied
+            if occupied:
+                active_count += 1
+            if i < 10:
+                WORKSTATION_UNITS[i] = occupied
 
-        # Dispatch hardware commands to ESP32
-        r1 = APPLIANCES.get("fan_top_left", {}).get("control_state", False) or APPLIANCES.get("light_left", {}).get("control_state", False)
-        r2 = APPLIANCES.get("fan_top_center", {}).get("control_state", False) or APPLIANCES.get("light_center_tube", {}).get("control_state", False)
+    # 3. Throttle ESP32 hardware dispatch (every 1.5s to avoid network congestion)
+    if current_time - last_esp_send_time >= 1.5:
+        last_esp_send_time = current_time
+        app_list = list(APPLIANCES.values())
+        r1 = app_list[0].get("control_state", False) if len(app_list) > 0 else False
+        r2 = app_list[1].get("control_state", False) if len(app_list) > 1 else False
         send_esp32_hardware(r1, r2)
 
-    # 3. Render Visual Overlays on Video Feed
+    # 4. Render Visual Overlays on Video Feed
     with lock:
+        # A. Draw Human Bounding Boxes with Labels & Feet Points
+        for (x1, y1, x2, y2, conf) in current_human_boxes:
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 120, 0), 2)
+            label_text = f"Student {int(conf*100)}%"
+            (tw, th), _ = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+            cv2.rectangle(frame, (x1, max(0, y1 - th - 6)), (x1 + tw + 6, y1), (255, 120, 0), -1)
+            cv2.putText(frame, label_text, (x1 + 3, max(12, y1 - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+            hx, hy = int((x1 + x2) / 2), int(y2)
+            cv2.circle(frame, (hx, hy), 6, (0, 0, 255), -1)
+
+        # B. Draw Appliances & Centroids & Connectors
         for key, item in APPLIANCES.items():
             ox, oy, ow, oh = item["roi"]
             x = ox + camera_shift_x
@@ -736,22 +773,32 @@ while True:
             active_color = (0, 255, 255) if item["control_state"] else (60, 60, 60)
             cv2.circle(frame, (zx, zy), 25, active_color, 2)
 
+            # Draw connector line from appliance to each student in range
+            if item["control_state"]:
+                for (hx, hy) in detected_humans:
+                    if math.hypot(hx - zx, hy - zy) < PROXIMITY_RADIUS:
+                        cv2.line(frame, (zx, zy), (hx, hy), (0, 255, 255), 1, cv2.LINE_AA)
+
         # Store latest frame for live web stream
         latest_frame = frame.copy()
 
     # Top Status Banner
     banner_bg = (20, 20, 30)
-    cv2.rectangle(frame, (10, 10), (640, 50), banner_bg, -1)
-    status_text = f"Calibrate: /calibrate | Shift: ({camera_shift_x},{camera_shift_y})px | Scan: {remaining_time:.1f}s"
-    cv2.putText(frame, status_text, (20, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (0, 255, 255), 2)
+    cv2.rectangle(frame, (10, 10), (700, 50), banner_bg, -1)
+    status_text = f"Live Students: {humans_detected_count} | Active: {active_count} | Shift: ({camera_shift_x},{camera_shift_y})px"
+    cv2.putText(frame, status_text, (20, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
 
     cv2.imshow(window_name, frame)
 
-    key = cv2.waitKey(20) & 0xFF
+    key = cv2.waitKey(10) & 0xFF
     if key in [ord('q'), ord('Q'), 27]:
         break
-    if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
-        break
+    if frame_idx > 15:
+        try:
+            if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
+                break
+        except Exception:
+            pass
 
 cap.release()
 cv2.destroyAllWindows()
