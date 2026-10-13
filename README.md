@@ -106,6 +106,7 @@ requests.get(f"{ESP32_IP}/control?index=1&state=off")  # Relay 2 (Unit 2) OFF
 │   └── smart_room_controller/         # Arduino Uno legacy prototype firmware
 ├── PIN_DIAGRAMS/                      # Hardware schematics, circuit and pinout diagrams
 │   ├── circuit_diagram.jpg
+│   ├── cctv_mobile_vision_setup.jpg
 │   ├── dc_prototype_pin_diagram.jpg
 │   ├── esp32_cam_circuit_diagram.jpg
 │   └── spatial_ai_pin_diagram.jpg

@@ -323,8 +323,9 @@ def create_report():
     )
     add_p(
         "The hardware tier integrates an opto-isolated multi-channel relay module within a zero-wiring retrofit smart extension box, "
-        "complemented by dual infrared directional doorway counters that track net occupancy. The system supports dual microcontroller "
-        "configurations (ESP32 DevKit and autonomous ESP32-CAM) alongside a real-time web-based Digital Twin monitoring dashboard. "
+        "complemented by dual infrared directional doorway counters that track net occupancy. The system utilizes the ESP32 DevKit V1 "
+        "for robust embedded switching and sensor telemetry, interfacing with institutional CCTV cameras for actual large-scale classroom "
+        "deployments and mobile smartphone camera feeds for prototype testbeds, alongside a real-time web-based Digital Twin monitoring dashboard. "
         "Experimental evaluations demonstrate an energy consumption reduction of 42.6% compared to uncontrolled baseline operations, "
         "validating the practical feasibility, safety, and scalability of the architecture.",
         size=11, space_before=0, space_after=0, line_spacing=1.15
@@ -375,7 +376,7 @@ def create_report():
         ("2", "SYSTEM ARCHITECTURE & HARDWARE SPECIFICATIONS", "10"),
         ("2.1", "  Overall System Multi-Tier Architecture", "10"),
         ("2.2", "  ESP32 Microcontroller Architectural Deep-Dive", "11"),
-        ("2.3", "  ESP32 Pin Allocation Matrix & ESP32-CAM Setup", "12"),
+        ("2.3", "  ESP32 Pin Allocation Matrix & Vision Feed Setup", "12"),
         ("2.4", "  Opto-Isolated Relay Module & AC Snubber Circuitry", "13"),
         ("2.5", "  Dual IR Directional Doorway Counter Module", "14"),
         ("2.6", "  Power Regulation, Battery Management & Isolation", "15"),
@@ -394,12 +395,12 @@ def create_report():
         ("4.5", "  System Flowcharts & State Machine Architectures", "26"),
         ("5", "FIRMWARE & SOFTWARE IMPLEMENTATION (CODING)", "27"),
         ("5.1", "  ESP32 Core Controller Firmware (esp32_smart_room.ino)", "27"),
-        ("5.2", "  Autonomous ESP32-CAM Firmware (esp32_cam_smart_room.ino)", "29"),
+        ("5.2", "  ESP32 Prototype Controller Firmware (esp32_prototype_controller.ino)", "29"),
         ("5.3", "  Python Spatial AI Server Engine (spatial_server.py)", "30"),
         ("5.4", "  Digital Twin Web Dashboard (dashboard.html)", "32"),
         ("6", "HARDWARE INTERFACING, SCHEMATICS & ASSEMBLY", "33"),
         ("6.1", "  Hardware Interconnection Circuit Schematic", "33"),
-        ("6.2", "  ESP32-CAM Standalone Schematic & Pinout", "34"),
+        ("6.2", "  Classroom CCTV & Mobile Smartphone Vision Capture Setup", "34"),
         ("6.3", "  DC Prototype Signal Wiring & Optical Isolation", "35"),
         ("6.4", "  Spatial Overhead Setup & Zero-Wiring Enclosure", "36"),
         ("7", "EXPERIMENTAL RESULTS & PERFORMANCE ANALYSIS", "37"),
@@ -467,7 +468,7 @@ def create_report():
         ("Figure 4.1", "ESP32 Bidirectional Counter State Machine Flowchart", "26"),
         ("Figure 4.2", "Python Spatial AI Proximity Engine & HTTP Dispatch Flowchart", "26"),
         ("Figure 6.1", "Complete System Hardware Wiring and Circuit Connection Schematic", "33"),
-        ("Figure 6.2", "ESP32-CAM Standalone Pinout and Wiring Schematic", "34"),
+        ("Figure 6.2", "Classroom CCTV & Mobile Camera Vision Setup Schematic", "34"),
         ("Figure 6.3", "DC Toy Motor and LED Strip Prototype Pin Interconnection Diagram", "35"),
         ("Figure 6.4", "Spatial Overhead Vision and Smart Extension Enclosure Layout", "36"),
         ("Figure 7.1", "Real-Time Digital Twin Monitoring Dashboard Interface", "37"),
@@ -698,7 +699,7 @@ def create_report():
         "depicted in the architectural decomposition, the system functions across four tightly coordinated functional tiers:",
         space_after=4
     )
-    add_bullet("Sensing and Vision Ingestion Tier: Encompasses dual infrared obstacle sensors deployed at the physical doorway threshold to log visitor entrance/exit transitions, paired with an overhead vision sensor (USB webcam, Windows Phone Link camera, or autonomous ESP32-CAM) capturing the room's spatial plane.")
+    add_bullet("Sensing and Vision Ingestion Tier: Encompasses dual infrared obstacle sensors deployed at the physical doorway threshold to log visitor entrance/exit transitions, paired with an overhead vision capture stream (institutional CCTV overhead cameras for full-scale classroom deployment, or mobile smartphone Wi-Fi IP / Phone Link cameras for prototype laboratory validation) capturing the room's spatial plane.")
     add_bullet("Edge Intelligence & Spatial Processing Tier: A host computer or edge computing module executing an optimized YOLOv8/YOLO-World deep neural network. It performs periodic 10-second image acquisition, spatial coordinate transformation, Euclidean proximity calculation, and automated generation of discrete actuation commands.")
     add_bullet("Embedded Actuation & Control Tier: Centered on an Espressif ESP32 32-bit dual-core microcontroller configured as an asynchronous HTTP REST server and high-speed GPIO logic controller. It drives a multi-channel opto-isolated relay board to switch physical appliances.")
     add_bullet("Electrical Load & Power Regulation Tier: Incorporates 230V AC institutional appliances (or 5V/12V DC demonstration loads including toy fan motors and high-efficiency LED strips) powered via isolated power rails and regulated lithium-ion battery management systems.")
@@ -756,7 +757,7 @@ def create_report():
     # -------------------------------------------------------------
     # PAGE 12: CHAPTER 2 - HARDWARE SPECIFICATIONS (PART 3)
     # -------------------------------------------------------------
-    add_h2("2.4 ESP32 Pin Allocation Matrix & ESP32-CAM Setup")
+    add_h2("2.4 ESP32 Pin Allocation Matrix & Embedded I/O Interface")
     add_p(
         "To ensure optimal signal integrity, avoid bootloader strap pin conflicts, and prevent hardware latch-up during power-on "
         "sequences, a strict GPIO assignment matrix was formulated for the ESP32 DevKit, as detailed in Table 2.1 below:",
@@ -805,12 +806,14 @@ def create_report():
     r_cap2.font.bold = True
     r_cap2.font.size = Pt(9.5)
 
-    add_h2("2.5 ESP32-CAM (AI-Thinker) Standalone Module Specifications")
+    add_h2("2.5 Vision Ingestion Architecture: Institutional CCTV Feeds & Mobile Camera Testbed")
     add_p(
-        "In addition to the standard ESP32 DevKit, the project incorporates support for the AI-Thinker ESP32-CAM module. This "
-        "compact 27x40.5mm board integrates an Omnivision OV2640 2-Megapixel camera sensor and 4 MB of external pseudo-static "
-        "RAM (PSRAM). The PSRAM expansion allows the ESP32-CAM to buffer full UXGA (1600x1200) or SVGA (800x600) JPEG frames inside "
-        "memory, serving continuous MJPEG HTTP video streams directly over Wi-Fi without requiring an external video capture card.",
+        "The computer vision ingestion architecture supports two distinct operational modes tailored for scalable real-world deployment "
+        "and laboratory prototyping: (1) Actual Classroom Implementation: Existing institutional CCTV ceiling-mounted surveillance cameras "
+        "stream overhead RTSP/H.264 video over the campus LAN directly to the spatial inference server, requiring zero additional camera "
+        "hardware investment; (2) Prototype Testbed Validation: Mobile smartphone cameras stream high-definition video over Wi-Fi via "
+        "the IP Webcam protocol or Windows Phone Link wireless camera virtualization, alongside USB webcams. Both sources deliver normalized "
+        "overhead video frames to the YOLO spatial reasoning pipeline while the dedicated ESP32 DevKit V1 manages physical actuation.",
         space_after=0
     )
 
@@ -1487,58 +1490,61 @@ void loop() {
     # -------------------------------------------------------------
     # PAGE 29: CHAPTER 5 - CODING (PART 3)
     # -------------------------------------------------------------
-    add_h2("5.3 ESP32-CAM Autonomous Controller Firmware (esp32_cam_smart_room.ino)")
-    add_p("Listing 5.3 presents the camera configuration and frame-streaming web server for the standalone ESP32-CAM module:", space_after=2)
+    add_h2("5.3 ESP32 Prototype Controller Firmware (esp32_prototype_controller.ino)")
+    add_p("Listing 5.3 presents the prototype ESP32 firmware implementation featuring doorway people counting, vacancy auto-off logic, and dual-unit workstation switching:", space_after=2)
     add_code(
-"""#include "esp_camera.h"
-#include <WiFi.h>
+"""#include <WiFi.h>
 #include <WebServer.h>
 
-// CAMERA_MODEL_AI_THINKER PIN MAP
-#define PWDN_GPIO_NUM     32
-#define RESET_GPIO_NUM    -1
-#define XCLK_GPIO_NUM      0
-#define SIOD_GPIO_NUM     26
-#define SIOC_GPIO_NUM     27
-#define Y9_GPIO_NUM       35
-#define Y8_GPIO_NUM       34
-#define Y7_GPIO_NUM       39
-#define Y6_GPIO_NUM       36
-#define Y5_GPIO_NUM       21
-#define Y4_GPIO_NUM       19
-#define Y3_GPIO_NUM       18
-#define Y2_GPIO_NUM        5
-#define VSYNC_GPIO_NUM    25
-#define HREF_GPIO_NUM     23
-#define PCLK_GPIO_NUM     22
+// PIN ASSIGNMENTS (ESP32 DevKit V1)
+const int PIN_UNIT_1 = 25;      // Relay Ch 1: Desk 1 (Fan 1 + Light 1)
+const int PIN_UNIT_2 = 26;      // Relay Ch 2: Desk 2 (Fan 2 + Light 2)
+const int PIN_SENSOR_OUT = 18;  // Outer doorway IR sensor
+const int PIN_SENSOR_IN  = 19;  // Inner doorway IR sensor
+#define SENSOR_TRIGGERED LOW
+#define RELAY_ON LOW
+#define RELAY_OFF HIGH
 
-void initCamera() {
-  camera_config_t config;
-  config.ledc_channel = LEDC_CHANNEL_0;
-  config.ledc_timer = LEDC_TIMER_0;
-  config.pin_d0 = Y2_GPIO_NUM;
-  config.pin_d1 = Y3_GPIO_NUM;
-  config.pin_d2 = Y4_GPIO_NUM;
-  config.pin_d3 = Y5_GPIO_NUM;
-  config.pin_d4 = Y6_GPIO_NUM;
-  config.pin_d5 = Y7_GPIO_NUM;
-  config.pin_d6 = Y8_GPIO_NUM;
-  config.pin_d7 = Y9_GPIO_NUM;
-  config.pin_xclk = XCLK_GPIO_NUM;
-  config.pin_pclk = PCLK_GPIO_NUM;
-  config.pin_vsync = VSYNC_GPIO_NUM;
-  config.pin_href = HREF_GPIO_NUM;
-  config.pin_sscb_sda = SIOD_GPIO_NUM;
-  config.pin_sscb_scl = SIOC_GPIO_NUM;
-  config.pin_pwdn = PWDN_GPIO_NUM;
-  config.pin_reset = RESET_GPIO_NUM;
-  config.xclk_freq_hz = 20000000;
-  config.pixel_format = PIXFORMAT_JPEG;
-  config.frame_size = FRAMESIZE_SVGA; // 800x600 resolution
-  config.jpeg_quality = 12;
-  config.fb_count = 2;
-  esp_err_t err = esp_camera_init(&config);
-  if (err != ESP_OK) { Serial.println("Camera Init Failed!"); }
+int personCount = 0;            // Live classroom occupancy
+bool unit1State = false, unit2State = false;
+bool outTriggered = false, inTriggered = false;
+unsigned long triggerTime = 0;
+const unsigned long PASS_TIMEOUT = 2500;
+WebServer server(80);
+
+void setAppliances(bool u1, bool u2) {
+  unit1State = u1; unit2State = u2;
+  digitalWrite(PIN_UNIT_1, unit1State ? RELAY_ON : RELAY_OFF);
+  digitalWrite(PIN_UNIT_2, unit2State ? RELAY_ON : RELAY_OFF);
+}
+
+void updateDoorwayCounter() {
+  int outVal = digitalRead(PIN_SENSOR_OUT);
+  int inVal  = digitalRead(PIN_SENSOR_IN);
+  unsigned long now = millis();
+
+  if (outVal == SENSOR_TRIGGERED && !outTriggered && !inTriggered) {
+    outTriggered = true; triggerTime = now; delay(40);
+  } else if (inVal == SENSOR_TRIGGERED && !inTriggered && !outTriggered) {
+    inTriggered = true; triggerTime = now; delay(40);
+  }
+
+  // Entry sequence (OUT -> IN): Increment count
+  if (outTriggered && inVal == SENSOR_TRIGGERED) {
+    personCount++;
+    outTriggered = false; inTriggered = false; delay(350);
+  }
+  // Exit sequence (IN -> OUT): Decrement count & Auto-Off if empty
+  if (inTriggered && outVal == SENSOR_TRIGGERED) {
+    if (personCount > 0) personCount--;
+    outTriggered = false; inTriggered = false;
+    if (personCount == 0) { setAppliances(false, false); } // Auto-Off Rule
+    delay(350);
+  }
+  // Timeout reset for partial passage
+  if ((outTriggered || inTriggered) && (now - triggerTime > PASS_TIMEOUT)) {
+    outTriggered = false; inTriggered = false;
+  }
 }"""
     )
 
@@ -1562,8 +1568,8 @@ from ultralytics import YOLO
 # =====================================================================
 
 CAMERA_SOURCE = 0  # 0 for Phone Link / Local Webcam
-IP_CAMERA_URL = "http://10.105.4.198:8080/video"
-ESP32_IP = "http://10.46.38.116"
+IP_CAMERA_URL = "http://192.168.43.100:8080/video"
+ESP32_IP = "http://192.168.43.125"
 
 SCAN_INTERVAL_SEC = 10.0   # Scans 1 frame every 10 seconds for power efficiency
 PROXIMITY_RADIUS = 280     # Radius in pixels around each ceiling appliance
@@ -1711,7 +1717,7 @@ def run_spatial_scanner():
   <script>
     async function updateTelemetry() {
       try {
-        const res = await fetch('http://10.46.38.116/status');
+        const res = await fetch('http://192.168.43.125/status');
         const data = await res.json();
         document.getElementById('occupancy-badge').innerText = `Occupancy: ${data.occupancy} Persons`;
         updateUI('fan1', data.fan1);
@@ -1768,14 +1774,15 @@ def run_spatial_scanner():
     # -------------------------------------------------------------
     # PAGE 34: CHAPTER 6 - HARDWARE & SCHEMATICS (PART 2)
     # -------------------------------------------------------------
-    add_h2("6.3 ESP32-CAM Standalone Circuit Schematic & Pin Wiring")
+    add_h2("6.3 Classroom CCTV & Mobile Smartphone Vision Capture Setup")
     add_p(
-        "For autonomous deployments eliminating the external PC vision server, Figure 6.2 illustrates the standalone ESP32-CAM "
-        "interconnection schematic, detailing power routing, relay driving, and camera pinouts:",
+        "For actual institutional deployment, overhead classroom CCTV surveillance cameras stream video over RTSP/LAN to the host "
+        "inference computer. For prototype testbeds, a mobile smartphone camera streaming via Wi-Fi IP Webcam or Windows Phone Link "
+        "is mounted overhead. Figure 6.2 illustrates the dual vision capture architecture and network signal routing to the ESP32 DevKit:",
         space_after=4
     )
 
-    img2_path = resolve_diagram_path('esp32_cam_circuit_diagram.jpg')
+    img2_path = resolve_diagram_path('cctv_mobile_vision_setup.jpg')
     if os.path.exists(img2_path):
         p_img2 = doc.add_paragraph()
         p_img2.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -1787,7 +1794,7 @@ def run_spatial_scanner():
     p_cap_f2.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_cap_f2.paragraph_format.space_before = Pt(2)
     p_cap_f2.paragraph_format.space_after = Pt(6)
-    r_cf2 = p_cap_f2.add_run("Figure 6.2: ESP32-CAM Standalone Pinout and Wiring Schematic")
+    r_cf2 = p_cap_f2.add_run("Figure 6.2: Classroom CCTV & Mobile Camera Vision Setup Schematic")
     r_cf2.font.bold = True
     r_cf2.font.size = Pt(9.5)
 
@@ -2161,7 +2168,7 @@ def run_spatial_scanner():
         "[1] J. Redmon, S. Divvala, R. Girshick, and A. Farhadi, \"You Only Look Once: Unified, Real-Time Object Detection,\" in Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR), 2016, pp. 779-788.",
         "[2] G. Jocher, A. Chaurasia, and J. Qiu, \"Ultralytics YOLOv8 Documentation and Framework,\" Ultralytics Inc., 2023. [Online]. Available: https://github.com/ultralytics/ultralytics.",
         "[3] Espressif Systems, \"ESP32 Series Datasheet and Hardware Technical Reference Manual,\" Version 4.1, Espressif Systems (Shanghai) Co., Ltd., 2024.",
-        "[4] AI-Thinker Technology, \"ESP32-CAM Development Board Specification and OV2640 Interfacing Guide,\" Shenzhen AI-Thinker Co., Ltd., 2022.",
+        "[4] ONVIF, \"ONVIF Profile S Specification for IP-Based Video Surveillance and RTSP Streaming Systems,\" Open Network Video Interface Forum, Version 2.6, 2022.",
         "[5] Sharp Microelectronics, \"PC817 Series High Density Mounting Type Photocoupler Datasheet,\" Sharp Corporation, Document No. SMA01031, 2021.",
         "[6] Songle Relay Co., \"Miniature High Power Relay SRD-05VDC-SL-C Technical Specifications,\" Ningbo Songle Relay Co., Ltd., 2020.",
         "[7] Texas Instruments, \"LM393 Dual Low Power Differential Voltage Comparators Datasheet,\" Texas Instruments Inc., Revised 2020.",
