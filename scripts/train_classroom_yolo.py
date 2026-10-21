@@ -32,10 +32,32 @@ def train():
     if os.path.exists(best_weights):
         os.makedirs(os.path.dirname(target_model), exist_ok=True)
         shutil.copy(best_weights, target_model)
+        import socket
+        import webbrowser
+        def get_wifi_ip():
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.connect(("8.8.8.8", 80))
+                ip = s.getsockname()[0]
+                s.close()
+                return ip
+            except Exception:
+                return "127.0.0.1"
+        wifi_ip = get_wifi_ip()
+
         print("\n" + "="*70)
         print(" [SUCCESS] Training Completed Successfully!")
         print(f" [SAVED] Model ready at: {target_model}")
+        print(" 🌐 DIGITAL TWIN DASHBOARD:")
+        print("    💻 Local PC URL:    http://localhost:5000")
+        print(f"    📶 Same Wi-Fi Link: http://{wifi_ip}:5000")
         print("="*70 + "\n")
+
+        try:
+            webbrowser.open("http://localhost:5000")
+            print(" [INFO] 🌐 Automatically launching dashboard in your browser...")
+        except Exception:
+            pass
     else:
         print("[WARNING] best.pt not found at:", best_weights)
 

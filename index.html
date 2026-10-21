@@ -3,541 +3,1110 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spatial AI Smart Room - Digital Twin Dashboard</title>
+  <title>Spatial AI Smart Room - Digital Twin Automation</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @keyframes pulse-subtle {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.65; transform: scale(0.97); }
     }
     .pulse-live { animation: pulse-subtle 2s infinite ease-in-out; }
-    .unit-active {
-      border-color: #22c55e !important;
-      background: rgba(34, 197, 94, 0.08) !important;
-      box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);
+    
+    .glass-card {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(51, 65, 85, 0.6);
     }
-    .unit-idle {
+    .glass-card:hover {
+      border-color: rgba(100, 116, 139, 0.8);
+    }
+
+    .app-card-active {
+      border-color: rgba(34, 197, 94, 0.6) !important;
+      background: radial-gradient(circle at top left, rgba(34, 197, 94, 0.12), rgba(15, 23, 42, 0.95)) !important;
+      box-shadow: 0 0 20px rgba(34, 197, 94, 0.15);
+    }
+    .app-card-idle {
       border-color: #334155;
-      background: #1e293b;
+      background: #0f172a;
     }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #020617; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 antialiased min-h-screen p-4 md:p-6 font-sans">
+<body class="bg-slate-950 text-slate-100 antialiased min-h-screen p-3 md:p-6 font-sans">
 
-  <!-- TOP HEADER & CONTROLS -->
-  <header class="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between pb-6 border-b border-slate-800 gap-4">
-    <div>
-      <div class="flex items-center gap-3">
-        <span class="text-2xl">🏠</span>
-        <h1 class="text-xl md:text-2xl font-bold tracking-tight text-white">Spatial AI Smart Room Automation</h1>
-        <span id="ai-badge-status" class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 pulse-live">
-          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> <span id="ai-badge-text">AI VISION STANDBY</span>
-        </span>
+  <!-- ========================================================================= -->
+  <!-- TOP NAVIGATION HEADER & PROFILE BAR -->
+  <!-- ========================================================================= -->
+  <header class="max-w-7xl mx-auto space-y-4 pb-5 border-b border-slate-800/80">
+    <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+      
+      <!-- BRAND & ROOM PROFILE DROPDOWN -->
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-emerald-500 flex items-center justify-center text-xl shadow-lg shadow-sky-950">
+          🏠
+        </div>
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <h1 class="text-lg md:text-xl font-bold tracking-tight text-white">Spatial AI Smart Room</h1>
+            
+            <!-- ROOM SELECTOR DROPDOWN -->
+            <div class="relative inline-block text-left">
+              <button id="room-dropdown-btn" onclick="toggleRoomDropdown()" class="flex items-center gap-2 px-3 py-1 rounded-lg bg-sky-950/80 border border-sky-700/80 hover:bg-sky-900 text-sky-200 text-xs md:text-sm font-bold transition shadow-sm">
+                <span>🏫</span> <span id="active-room-display-name">Loading Room...</span> <span>▾</span>
+              </button>
+              
+              <!-- ROOM PROFILE POPUP MENU -->
+              <div id="room-dropdown-menu" class="hidden absolute left-0 mt-2 w-64 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl py-2 z-50 divide-y divide-slate-800">
+                <div class="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Switch Room Profile
+                </div>
+                <div id="room-dropdown-list" class="max-h-52 overflow-y-auto py-1">
+                  <!-- Injected via JS -->
+                </div>
+                <div class="p-2 space-y-1 bg-slate-950/50">
+                  <button onclick="openCreateRoomModal()" class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-400 hover:bg-emerald-950/50 transition text-left">
+                    <span>➕</span> Create New Room Profile
+                  </button>
+                  <button onclick="openRenameRoomModal()" class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-sky-300 hover:bg-sky-950/50 transition text-left">
+                    <span>✏️</span> Rename Current Room
+                  </button>
+                  <button onclick="deleteCurrentRoom()" class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-400 hover:bg-rose-950/50 transition text-left">
+                    <span>🗑️</span> Delete Current Room
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- AI TRACKING STATE BADGE -->
+            <span id="tracking-status-badge" class="px-2.5 py-1 text-xs font-bold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 shadow">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span id="tracking-badge-text">AI TRACKING LIVE</span>
+            </span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">
+            Perspective 3D Micro-Grid Automation &bull; Multi-Room Digital Twin &bull; Real-Time Energy Optimization
+          </p>
+        </div>
       </div>
-      <p class="text-sm text-slate-400 mt-1">
-        10-Zone Micro-Grid Digital Twin &bull; 2-Channel Hardware Actuator &bull; YOLO-World 10s Eco-Scanner
-      </p>
+
+      <!-- ACTION BUTTONS: TRACKING TOGGLE, CALIBRATE, WI-FI -->
+      <div class="flex flex-wrap items-center gap-2.5">
+        <!-- START / PAUSE TRACKING BUTTON -->
+        <button id="tracking-toggle-btn" onclick="toggleAiTracking()" class="px-4 py-2 rounded-xl text-xs md:text-sm font-bold transition flex items-center gap-2 shadow-lg bg-amber-600 hover:bg-amber-500 text-white">
+          <span>⏸️</span> <span>Pause Tracking</span>
+        </button>
+
+        <!-- CALIBRATE ROOM BUTTON -->
+        <a href="/calibrate" class="px-3.5 py-2 rounded-xl text-xs md:text-sm font-bold bg-sky-600 hover:bg-sky-500 text-white transition flex items-center gap-1.5 shadow-lg shadow-sky-950">
+          <span>🎯</span> <span>Calibrate Grid</span>
+        </a>
+
+        <!-- COLLAPSIBLE VIDEO SOURCE MENU BUTTON -->
+        <button onclick="toggleVideoSourcePanel()" class="px-3.5 py-2 rounded-xl text-xs md:text-sm font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5">
+          <span>📹</span> <span>Video Source</span> <span>▾</span>
+        </button>
+
+        <!-- SAME WI-FI LINK PILL -->
+        <div class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs shadow">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="text-slate-400 font-medium">📶 Wi-Fi:</span>
+          <a id="wifi-link-anchor" href="http://10.253.100.7:5000" target="_blank" class="text-sky-300 hover:text-white font-mono font-bold underline" title="Open on Mobile / Tablet on Same Wi-Fi">
+            http://10.253.100.7:5000
+          </a>
+          <button onclick="copyWifiLink()" title="Copy Link" class="text-slate-400 hover:text-white text-xs ml-1">📋</button>
+        </div>
+      </div>
     </div>
 
-    <!-- HARDWARE CONNECTION BAR -->
-    <div class="flex items-center gap-3 bg-slate-900 p-2 rounded-xl border border-slate-800 text-xs">
-      <div class="flex items-center gap-2 px-2">
-        <span id="hw-status-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-        <span class="text-slate-400">ESP32 IP:</span>
-        <input id="esp32-ip-input" type="text" value="http://192.168.43.125" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 font-mono text-emerald-300 focus:outline-none focus:border-emerald-500 w-36">
+    <!-- ========================================================================= -->
+    <!-- COLLAPSIBLE VIDEO SOURCE CONFIGURATION DRAWER -->
+    <!-- ========================================================================= -->
+    <div id="video-source-panel" class="hidden bg-slate-900 border border-slate-700/80 rounded-2xl p-4 shadow-2xl transition-all space-y-3">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <span class="text-base">📹</span>
+          <span class="text-sm font-bold text-white">Select Camera / Video Input Source</span>
+          <span id="active-source-badge" class="px-2 py-0.5 rounded text-[11px] font-mono bg-sky-950 text-sky-300 border border-sky-800">
+            Source: Loading...
+          </span>
+        </div>
+        <button onclick="toggleVideoSourcePanel()" class="text-slate-400 hover:text-white text-xs font-bold">✕ Close</button>
       </div>
-      <button onclick="pingEsp32()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition cursor-pointer">
-        Ping
-      </button>
-      <button id="sim-btn" onclick="toggleSimulation()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-medium transition cursor-pointer">
-        Demo Auto-Sim
-      </button>
-      <a href="/calibrate" class="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-medium transition cursor-pointer flex items-center gap-1">
-        🎯 Calibrate Room
-      </a>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+        
+        <!-- OPTION 1: PHONE CAMERA (IP WEBCAM / RTSP) -->
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+          <div class="font-bold text-sky-400 flex items-center gap-1.5">
+            <span>📱</span> Phone Camera (IP Webcam / RTSP)
+          </div>
+          <p class="text-[11px] text-slate-400">Stream from IP Webcam app or RTSP address:</p>
+          <input id="phone-stream-url-input" type="text" placeholder="http://192.168.43.1:8080/video" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 font-mono text-emerald-300 focus:outline-none focus:border-sky-500 text-xs">
+          <button onclick="switchVideoSource('phone')" class="w-full py-1.5 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-lg transition">
+            Connect Phone Camera
+          </button>
+        </div>
+
+        <!-- OPTION 2: LOCAL WEBCAM -->
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+          <div class="font-bold text-emerald-400 flex items-center gap-1.5">
+            <span>📷</span> Local USB / Laptop WebCam
+          </div>
+          <p class="text-[11px] text-slate-400">Select integrated camera or plug-in USB camera:</p>
+          <select id="webcam-index-select" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-emerald-500 text-xs">
+            <option value="0">Camera 0 (Default Built-In / WebCam)</option>
+            <option value="1">Camera 1 (External USB Camera)</option>
+            <option value="2">Camera 2 (Secondary USB Camera)</option>
+          </select>
+          <button onclick="switchVideoSource('webcam')" class="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition">
+            Switch to WebCam
+          </button>
+        </div>
+
+        <!-- OPTION 3: VIDEO FOOTAGE FILE -->
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+          <div class="font-bold text-purple-400 flex items-center gap-1.5">
+            <span>🎬</span> Video Footage File
+          </div>
+          <p class="text-[11px] text-slate-400">Choose bundled footage or enter video path:</p>
+          <select id="bundled-video-select" onchange="onSelectBundledVideo(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-200 focus:outline-none focus:border-purple-500 text-xs">
+            <option value="">Choose Bundled / Recent Video...</option>
+          </select>
+          <input id="custom-video-path-input" type="text" placeholder="models/Classroom Video/EEE1_classroom.mp4" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 font-mono text-slate-200 focus:outline-none focus:border-purple-500 text-xs">
+          <button onclick="switchVideoSource('file')" class="w-full py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg transition">
+            Play Video File
+          </button>
+        </div>
+
+      </div>
     </div>
   </header>
 
-  <!-- KEY METRICS BANNER -->
-  <section class="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 my-6">
-    <!-- Metric 1: Active Workstations -->
-    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
-      <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Active Workstations</span>
+  <!-- ========================================================================= -->
+  <!-- KEY PERFORMANCE METRICS BANNER -->
+  <!-- ========================================================================= -->
+  <section class="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-3.5 my-5">
+    
+    <!-- Metric 1: Active Appliances -->
+    <div class="glass-card rounded-2xl p-4 shadow-sm">
+      <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Active Appliances</span>
       <div class="flex items-baseline justify-between mt-2">
-        <span id="metric-active-units" class="text-3xl font-extrabold text-white">2</span>
-        <span class="text-xs text-slate-400 font-semibold">/ 10 Units</span>
+        <span id="metric-active-apps" class="text-3xl font-extrabold text-white">0</span>
+        <span id="metric-total-apps" class="text-xs text-slate-400 font-semibold">/ 0 Total</span>
       </div>
       <div class="w-full bg-slate-800 rounded-full h-1.5 mt-3 overflow-hidden">
-        <div id="bar-active-units" class="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" style="width: 20%;"></div>
+        <div id="bar-active-apps" class="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" style="width: 0%;"></div>
       </div>
     </div>
 
-    <!-- Metric 2: Live Energy Saved -->
-    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
-      <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Live Energy Saved</span>
+    <!-- Metric 2: Live Energy Conservation -->
+    <div class="glass-card rounded-2xl p-4 shadow-sm">
+      <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Live Energy Conservation</span>
       <div class="flex items-baseline justify-between mt-2">
-        <span id="metric-energy-saved" class="text-3xl font-extrabold text-emerald-400">80%</span>
+        <span id="metric-energy-saved" class="text-3xl font-extrabold text-emerald-400">100%</span>
         <span class="text-xs text-emerald-400/80 font-semibold">&bull; Eco Mode</span>
       </div>
-      <p class="text-xs text-slate-400 mt-2">Compared to continuous whole-room power</p>
+      <p class="text-xs text-slate-400 mt-2">Optimized occupancy zone actuation</p>
     </div>
 
-    <!-- Metric 3: Power Consumption -->
-    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
-      <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Current Power Load</span>
+    <!-- Metric 3: Active Power Load -->
+    <div class="glass-card rounded-2xl p-4 shadow-sm">
+      <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Current Power Load</span>
       <div class="flex items-baseline justify-between mt-2">
-        <span id="metric-power-watts" class="text-3xl font-extrabold text-white">180 W</span>
-        <span class="text-xs text-slate-400 font-semibold">vs 900W Max</span>
+        <span id="metric-power-watts" class="text-3xl font-extrabold text-white">0 W</span>
+        <span id="metric-conserved-watts" class="text-xs text-emerald-400 font-semibold">0W Conserved</span>
       </div>
-      <p class="text-xs text-slate-400 mt-2">720 Watts currently conserved</p>
+      <p class="text-xs text-slate-400 mt-2">Dynamic real-time appliance consumption</p>
     </div>
 
-    <!-- Metric 4: Real-Time AI Vision Scanner -->
-    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
-      <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">YOLO-World Scanner</span>
+    <!-- Metric 4: AI Computer Vision Inference -->
+    <div class="glass-card rounded-2xl p-4 shadow-sm">
+      <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">AI Vision Inference</span>
       <div class="flex items-baseline justify-between mt-2">
-        <span id="metric-scan-timer" class="text-3xl font-extrabold text-emerald-400">LIVE</span>
-        <span class="text-xs text-emerald-400/80 font-semibold">&bull; Real-Time</span>
+        <span id="metric-humans-detected" class="text-3xl font-extrabold text-sky-400">0</span>
+        <span id="metric-vision-pill" class="text-xs font-semibold px-2 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-800">
+          STUDENTS
+        </span>
       </div>
-      <p class="text-xs text-slate-400 mt-2">Continuous zero-latency vision inference</p>
+      <p class="text-xs text-slate-400 mt-2" id="metric-inference-subtext">Fine-Tuned YOLOv8 Classroom Spatial Model</p>
     </div>
+
   </section>
 
-  <!-- MAIN SECTION: 10 WORKSTATION GRID & ROOM MAP -->
+  <!-- ========================================================================= -->
+  <!-- MAIN LAYOUT: APPLIANCE SWITCHES & LIVE CAMERA MONITOR -->
+  <!-- ========================================================================= -->
   <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-    <!-- 10 WORKSTATION UNITS GRID -->
+    <!-- LEFT 2 COLUMNS: DYNAMIC SWITCHES & APPLIANCES -->
     <div class="lg:col-span-2 space-y-4">
       <div class="flex items-center justify-between">
-        <h2 class="text-base font-semibold tracking-tight text-white flex items-center gap-2">
-          <span>🖥️</span> Workstation Units (Fan + Light Pairs)
-        </h2>
-        <span class="text-xs text-slate-400">Click any card to toggle occupancy</span>
+        <div>
+          <h2 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
+            <span>⚡</span> Automated Room Switches & Appliances
+          </h2>
+          <p class="text-xs text-slate-400">
+            Real-time occupancy driven &bull; Individual Manual override supported
+          </p>
+        </div>
+        <button onclick="openAddApplianceModal()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-emerald-950">
+          <span>➕</span> Add Switch
+        </button>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5" id="units-container">
-        <!-- Javascript populates 10 cards here -->
+      <!-- DYNAMIC APPLIANCES GRID -->
+      <div id="appliances-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        <!-- Rendered dynamically by JavaScript -->
       </div>
     </div>
 
-    <!-- RIGHT COLUMN: HARDWARE CONTROLS & DIGITAL TWIN FLOOR PLAN -->
-    <div class="space-y-6">
-
-      <!-- PHYSICAL TESTBED CONTROLS -->
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-          <h3 class="font-semibold text-sm text-white flex items-center gap-2">
-            <span>🔌</span> Physical 2-Channel Relay Testbed
-          </h3>
-          <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-            Desk Hardware
+    <!-- RIGHT COLUMN: LIVE AI VIDEO MONITOR & CONTROLS -->
+    <div class="space-y-5">
+      
+      <!-- LIVE CAMERA FEED CARD -->
+      <div class="glass-card rounded-2xl p-4 shadow-sm space-y-3">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="text-base">📹</span>
+            <span class="font-bold text-sm text-white">Live AI Vision Monitor</span>
+          </div>
+          <span id="video-tracking-pill" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            LIVE MONITOR
           </span>
         </div>
 
-        <div class="space-y-3.5 mt-4">
-          <!-- Unit 1 Physical -->
-          <div class="flex items-center justify-between p-3 rounded-lg bg-slate-950 border border-slate-800">
-            <div>
-              <div class="font-medium text-sm text-white">Unit 01 (Relay Channel 1)</div>
-              <div class="text-xs text-slate-400">GPIO 25 &bull; 5V Light + Fan</div>
-            </div>
-            <button id="hw-toggle-1" onclick="togglePhysicalRelay(1)" class="px-4 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer bg-emerald-600 text-white">
-              FORCE ON
-            </button>
-          </div>
-
-          <!-- Unit 2 Physical -->
-          <div class="flex items-center justify-between p-3 rounded-lg bg-slate-950 border border-slate-800">
-            <div>
-              <div class="font-medium text-sm text-white">Unit 02 (Relay Channel 2)</div>
-              <div class="text-xs text-slate-400">GPIO 26 &bull; 5V Light + Fan</div>
-            </div>
-            <button id="hw-toggle-2" onclick="togglePhysicalRelay(2)" class="px-4 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer bg-slate-800 text-slate-400">
-              FORCE OFF
-            </button>
-          </div>
-        </div>
-
-        <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-          <span>Safety Watchdog:</span>
-          <span class="font-mono text-emerald-400">35s Auto-Shutoff Active</span>
-        </div>
-      </div>
-
-      <!-- LIVE AI CAMERA STREAM -->
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-          <h3 class="font-semibold text-sm text-white flex items-center gap-2">
-            <span>📹</span> Live AI Camera Stream
-          </h3>
-          <span id="stream-live-pill" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-700/50 text-slate-400 border border-slate-700">
-            STANDBY
+        <!-- Video Size & Expand Controls -->
+        <div class="flex items-center justify-between text-xs bg-slate-950/80 p-1.5 rounded-xl border border-slate-800">
+          <span class="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+            <span>🔍</span> Frame View:
           </span>
+          <div class="flex items-center gap-1">
+            <button onclick="setStreamViewMode('std')" id="btn-view-std" class="px-2 py-0.5 rounded text-[11px] font-semibold bg-sky-950 text-sky-300 border border-sky-700">16:9 Standard</button>
+            <button onclick="setStreamViewMode('exp')" id="btn-view-exp" class="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-900 text-slate-400 hover:text-white border border-slate-700">Expand</button>
+            <button onclick="setStreamViewMode('wide')" id="btn-view-wide" class="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-900 text-slate-400 hover:text-white border border-slate-700">Wide</button>
+            <button onclick="toggleStreamFullscreen()" class="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-800 text-slate-300 hover:text-white">⛶ Full</button>
+          </div>
         </div>
 
-        <div class="mt-4 relative rounded-lg overflow-hidden bg-slate-950 border border-slate-800 aspect-video flex items-center justify-center">
-          <img id="live-stream-img" src="http://localhost:5000/video_feed" alt="Live AI Camera Feed" class="w-full h-full object-cover">
-          <div id="stream-offline-overlay" class="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-slate-950/90">
+        <!-- MJPEG Video Stream Viewport -->
+        <div id="video-stream-container" class="relative rounded-xl overflow-hidden bg-slate-950 border border-slate-800 aspect-video flex items-center justify-center transition-all duration-300 shadow-inner">
+          <img id="live-stream-img" src="/video_feed" alt="Live AI Stream" class="w-full h-full object-cover">
+          <div id="stream-offline-overlay" class="hidden absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-slate-950/90">
             <span class="text-3xl mb-1">📷</span>
             <span class="text-xs font-semibold text-slate-300">Live AI Stream Standby</span>
-            <span class="text-[10px] text-slate-500 mt-1">Start spatial_server.py to stream phone camera</span>
+            <span class="text-[10px] text-slate-500 mt-1">Starting camera loop...</span>
           </div>
         </div>
 
-        <div class="mt-3 flex items-center justify-between text-[11px] text-slate-400">
-          <span>Vision: <span class="text-sky-400 font-mono">Custom YOLOv8n (Real-Time Live)</span></span>
-          <span id="humans-detected-tag" class="text-emerald-400 font-mono">0 Humans Detected</span>
+        <div class="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+          <span>Active Room: <b id="video-room-tag" class="text-sky-300 font-mono">EEE Classroom 1</b></span>
+          <span id="video-shift-tag" class="text-emerald-400 font-mono">Auto-Shift: (0px, 0px)</span>
         </div>
       </div>
 
-      <!-- DIGITAL TWIN SPATIAL RADAR / ROOM FLOOR PLAN -->
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-          <h3 class="font-semibold text-sm text-white flex items-center gap-2">
-            <span>📐</span> Room Spatial Zone Layout
-          </h3>
-          <span class="text-xs text-slate-400">Camera FOV</span>
+      <!-- HARDWARE RELAY BRIDGE STATUS CARD -->
+      <div class="glass-card rounded-2xl p-4 shadow-sm space-y-3">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+          <div class="flex items-center gap-2">
+            <span>🔌</span>
+            <span class="font-bold text-sm text-white">ESP32 Hardware Relay Actuator</span>
+          </div>
+          <span id="esp-ping-pill" class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            CONNECTED
+          </span>
         </div>
 
-        <!-- 2D Canvas / CSS Grid Visualizer -->
-        <div class="relative bg-slate-950 rounded-lg p-4 border border-slate-800 mt-4 aspect-video flex flex-col justify-between">
-          <!-- Camera Icon & FOV Lines -->
-          <div class="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-center">
-            <span class="text-sm">📷</span>
-            <span class="text-[10px] text-sky-400 font-mono">10s Camera</span>
+        <div class="grid grid-cols-2 gap-2.5 text-xs">
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+            <div class="text-[10px] text-slate-400 font-medium">RELAY 1 (GPIO 25)</div>
+            <div id="relay-1-status" class="mt-1 font-bold text-slate-400 text-sm">OFF</div>
+            <div class="text-[10px] text-slate-500 mt-0.5">Assigned: Channel 1 Switches</div>
           </div>
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+            <div class="text-[10px] text-slate-400 font-medium">RELAY 2 (GPIO 26)</div>
+            <div id="relay-2-status" class="mt-1 font-bold text-slate-400 text-sm">OFF</div>
+            <div class="text-[10px] text-slate-500 mt-0.5">Assigned: Channel 2 Switches</div>
+          </div>
+        </div>
 
-          <!-- Grid of 10 desks -->
-          <div class="grid grid-cols-5 gap-2 mt-8 mb-2">
-            <!-- Row 1 -->
-            <div id="radar-1" class="h-9 rounded border border-emerald-500/50 bg-emerald-500/10 flex items-center justify-center text-[10px] font-bold text-emerald-400">U1*</div>
-            <div id="radar-2" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U2*</div>
-            <div id="radar-3" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U3</div>
-            <div id="radar-4" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U4</div>
-            <div id="radar-5" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U5</div>
-            <!-- Row 2 -->
-            <div id="radar-6" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U6</div>
-            <div id="radar-7" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U7</div>
-            <div id="radar-8" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U8</div>
-            <div id="radar-9" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U9</div>
-            <div id="radar-10" class="h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">U10</div>
-          </div>
-
-          <div class="text-[10px] text-center text-slate-400 flex items-center justify-center gap-3">
-            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Active Zone</span>
-            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-600"></span> Idle Zone</span>
-            <span class="text-amber-400 font-bold">* Physical</span>
-          </div>
+        <div class="flex items-center gap-2 pt-1 text-xs">
+          <span class="text-slate-400">ESP32 IP:</span>
+          <input id="esp32-ip-input" type="text" value="http://192.168.43.125" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-emerald-300 text-xs">
+          <button onclick="pingEsp32()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-bold">Ping</button>
         </div>
       </div>
 
     </div>
   </main>
 
-  <script>
-    // State of all 10 Workstation Units
-    const UNITS = [
-      { id: 1, name: "Unit 01 (Front Left)", isPhysical: true, gpio: "GPIO 25", active: true },
-      { id: 2, name: "Unit 02 (Front Center)", isPhysical: true, gpio: "GPIO 26", active: false },
-      { id: 3, name: "Unit 03 (Front Right)", isPhysical: false, gpio: "Digital Twin", active: false },
-      { id: 4, name: "Unit 04 (Mid Left)", isPhysical: false, gpio: "Digital Twin", active: false },
-      { id: 5, name: "Unit 05 (Mid Center)", isPhysical: false, gpio: "Digital Twin", active: false },
-      { id: 6, name: "Unit 06 (Mid Right)", isPhysical: false, gpio: "Digital Twin", active: false },
-      { id: 7, name: "Unit 07 (Rear Left)", isPhysical: false, gpio: "Digital Twin", active: false },
-      { id: 8, name: "Unit 08 (Rear Center-L)", isPhysical: false, gpio: "Digital Twin", active: false },
-      { id: 9, name: "Unit 09 (Rear Center-R)", isPhysical: false, gpio: "Digital Twin", active: false },
-      { id: 10, name: "Unit 10 (Rear Right)", isPhysical: false, gpio: "Digital Twin", active: false }
-    ];
+  <!-- ========================================================================= -->
+  <!-- MODAL: ADD / EDIT SWITCH -->
+  <!-- ========================================================================= -->
+  <div id="appliance-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+        <h3 id="modal-title" class="font-bold text-base text-white">Add New Appliance Switch</h3>
+        <button onclick="closeApplianceModal()" class="text-slate-400 hover:text-white font-bold">✕</button>
+      </div>
 
-    let simulationInterval = null;
-    let scanSecondsRemaining = 10.0;
+      <input type="hidden" id="modal-app-id">
 
-    // Render Workstation Cards
-    function renderUnits() {
-      const container = document.getElementById("units-container");
-      container.innerHTML = "";
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 font-semibold mb-1">Switch / Appliance Name</label>
+          <input id="modal-app-name" type="text" placeholder="e.g. Front Fan Row 1" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-emerald-500">
+        </div>
 
-      UNITS.forEach(unit => {
-        const card = document.createElement("div");
-        card.className = `p-4 rounded-xl border transition-all duration-300 cursor-pointer ${unit.active ? 'unit-active' : 'unit-idle'}`;
-        card.onclick = () => toggleUnit(unit.id);
-
-        card.innerHTML = `
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="font-bold text-sm text-white">${unit.name}</span>
-              ${unit.isPhysical ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">PHYSICAL</span>' : '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400">VIRTUAL</span>'}
-            </div>
-            <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${unit.active ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'}">
-              ${unit.active ? '● OCCUPIED' : '○ VACANT'}
-            </span>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 font-semibold mb-1">Appliance Type</label>
+            <select id="modal-app-type" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:outline-none">
+              <option value="fan">🌀 Ceiling / Desk Fan</option>
+              <option value="light">💡 Light / Tube</option>
+              <option value="ac">❄️ Air Conditioner</option>
+              <option value="switch">🔌 General Switch</option>
+            </select>
           </div>
+          <div>
+            <label class="block text-slate-400 font-semibold mb-1">Hardware Relay</label>
+            <select id="modal-app-relay" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:outline-none">
+              <option value="1">Relay Channel 1 (GPIO 25)</option>
+              <option value="2">Relay Channel 2 (GPIO 26)</option>
+              <option value="0">Virtual / Software Only</option>
+            </select>
+          </div>
+        </div>
 
-          <div class="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-700/50">
-            <!-- Appliance 1: Light -->
-            <div class="flex items-center gap-2 text-xs">
-              <span class="text-base">${unit.active ? '💡' : '🌑'}</span>
-              <div>
-                <div class="text-slate-400 text-[10px]">TUBE LIGHT</div>
-                <div class="font-semibold ${unit.active ? 'text-emerald-400' : 'text-slate-400'}">${unit.active ? 'ACTIVE (ON)' : 'OFF'}</div>
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 space-y-1">
+          <div class="font-bold text-sky-400">💡 3D Perspective Grid Assignment:</div>
+          <p>After saving, open <b class="text-sky-300">Calibrate Grid</b> to click and assign the exact desk cells that will automatically trigger this appliance!</p>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+        <button onclick="closeApplianceModal()" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300">
+          Cancel
+        </button>
+        <button onclick="saveApplianceModal()" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950">
+          Save Switch
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: CREATE / RENAME ROOM -->
+  <!-- ========================================================================= -->
+  <div id="room-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+        <h3 id="room-modal-title" class="font-bold text-base text-white">Create New Room</h3>
+        <button onclick="closeRoomModal()" class="text-slate-400 hover:text-white font-bold">✕</button>
+      </div>
+
+      <input type="hidden" id="room-modal-mode" value="create">
+      <div class="text-xs space-y-2">
+        <label class="block text-slate-400 font-semibold">Room Name</label>
+        <input id="room-modal-name" type="text" placeholder="e.g. EEE Lab 2, Meeting Hall" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-sky-500">
+        <p id="room-modal-subtext" class="text-[11px] text-slate-400">A new room will start with a clean 3D perspective grid ready for calibration.</p>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+        <button onclick="closeRoomModal()" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300">
+          Cancel
+        </button>
+        <button onclick="submitRoomModal()" class="px-4 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white shadow-lg shadow-sky-950">
+          Submit
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <!-- ========================================================================= -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- ========================================================================= -->
+  <!-- JAVASCRIPT FRONTEND LOGIC -->
+  <!-- ========================================================================= -->
+  <script>
+    let activeRoomId = "";
+    let activeRoomName = "";
+    let roomsList = [];
+    let appliancesData = {};
+    let isTrackingActive = true;
+    let isConnected = false;
+    let cameraSourceCurrent = "";
+
+    // -------------------------------------------------------------------------
+    // 🌐 REAL-TIME SERVER POLLING
+    // -------------------------------------------------------------------------
+    async function pollStatus() {
+      try {
+        const res = await fetch('/api/status', { cache: 'no-store' });
+        if (!res.ok) throw new Error("Status failed");
+        const d = await res.json();
+
+        if (!isConnected) {
+          isConnected = true;
+          document.getElementById('stream-offline-overlay').classList.add('hidden');
+        }
+
+        // 1. Sync Tracking State
+        if (d.tracking_active !== undefined && d.tracking_active !== isTrackingActive) {
+          isTrackingActive = d.tracking_active;
+          updateTrackingUI();
+        }
+
+        // 2. Sync Active Room Name
+        if (d.active_room_name && d.active_room_name !== activeRoomName) {
+          activeRoomName = d.active_room_name;
+          activeRoomId = d.active_room_id;
+          document.getElementById('active-room-display-name').innerText = activeRoomName;
+          document.getElementById('video-room-tag').innerText = activeRoomName;
+        }
+
+        // 3. Sync Metrics
+        const activeCount = d.active_appliances_count || 0;
+        const totalCount = d.total_appliances_count || 0;
+        document.getElementById('metric-active-apps').innerText = activeCount;
+        document.getElementById('metric-total-apps').innerText = `/ ${totalCount} Total`;
+        document.getElementById('bar-active-apps').style.width = totalCount > 0 ? `${(activeCount / totalCount) * 100}%` : '0%';
+
+        document.getElementById('metric-energy-saved').innerText = `${d.energy_saved_percent || 0}%`;
+        const powerW = activeCount * 80;
+        const conservedW = Math.max(0, (totalCount - activeCount) * 80);
+        document.getElementById('metric-power-watts').innerText = `${powerW} W`;
+        document.getElementById('metric-conserved-watts').innerText = `${conservedW}W Conserved`;
+
+        document.getElementById('metric-humans-detected').innerText = d.humans_detected || 0;
+
+        // 4. Sync Hardware Relays
+        const r1El = document.getElementById('relay-1-status');
+        const r2El = document.getElementById('relay-2-status');
+        if (r1El) {
+          r1El.innerText = d.relay_1 ? "⚡ ACTIVATED (ON)" : "○ DEACTIVATED";
+          r1El.className = `mt-1 font-bold text-sm ${d.relay_1 ? 'text-emerald-400' : 'text-slate-400'}`;
+        }
+        if (r2El) {
+          r2El.innerText = d.relay_2 ? "⚡ ACTIVATED (ON)" : "○ DEACTIVATED";
+          r2El.className = `mt-1 font-bold text-sm ${d.relay_2 ? 'text-emerald-400' : 'text-slate-400'}`;
+        }
+
+        // 5. Sync Auto-shift
+        if (d.camera_shift) {
+          document.getElementById('video-shift-tag').innerText = `Auto-Shift: (${d.camera_shift.dx}px, ${d.camera_shift.dy}px)`;
+        }
+
+        // 6. Sync Dynamic Wi-Fi link
+        if (d.wifi_url) {
+          const wifiAnchor = document.getElementById('wifi-link-anchor');
+          if (wifiAnchor && wifiAnchor.href !== d.wifi_url) {
+            wifiAnchor.href = d.wifi_url;
+            wifiAnchor.innerText = d.wifi_url;
+          }
+        }
+
+        // 7. Render Appliance Cards if changed
+        if (d.appliances) {
+          appliancesData = d.appliances;
+          renderApplianceCards();
+        }
+
+      } catch (e) {
+        if (isConnected) {
+          isConnected = false;
+          const badge = document.getElementById('tracking-status-badge');
+          if (badge) {
+            badge.className = "px-2.5 py-1 text-xs font-bold rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center gap-1.5 shadow";
+          }
+          document.getElementById('tracking-badge-text').innerText = "DISCONNECTED";
+        }
+      }
+    }
+
+    setInterval(pollStatus, 500);
+
+    // -------------------------------------------------------------------------
+    // 🤖 AI TRACKING CONTROLS
+    // -------------------------------------------------------------------------
+    function updateTrackingUI() {
+      const badge = document.getElementById('tracking-status-badge');
+      const text = document.getElementById('tracking-badge-text');
+      const btn = document.getElementById('tracking-toggle-btn');
+      const videoPill = document.getElementById('video-tracking-pill');
+      const infText = document.getElementById('metric-inference-subtext');
+
+      if (isTrackingActive) {
+        badge.className = "px-2.5 py-1 text-xs font-bold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 shadow";
+        text.innerText = "AI TRACKING LIVE";
+        btn.innerHTML = "<span>⏸️</span> <span>Pause Tracking</span>";
+        btn.className = "px-4 py-2 rounded-xl text-xs md:text-sm font-bold transition flex items-center gap-2 shadow-lg bg-amber-600 hover:bg-amber-500 text-white cursor-pointer";
+        videoPill.innerText = "LIVE MONITOR";
+        videoPill.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+        infText.innerText = "Fine-Tuned YOLOv8 Classroom Spatial Model";
+      } else {
+        badge.className = "px-2.5 py-1 text-xs font-bold rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 shadow";
+        text.innerText = "TRACKING PAUSED";
+        btn.innerHTML = "<span>▶️</span> <span>Start Tracking</span>";
+        btn.className = "px-4 py-2 rounded-xl text-xs md:text-sm font-bold transition flex items-center gap-2 shadow-lg bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer";
+        videoPill.innerText = "PAUSED (VIDEO LIVE)";
+        videoPill.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30";
+        infText.innerText = "Tracking paused (inference idle to save CPU/GPU)";
+      }
+    }
+
+    function toggleAiTracking() {
+      fetch('/api/tracking/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: !isTrackingActive })
+      })
+      .then(r => r.json())
+      .then(d => {
+        isTrackingActive = d.active;
+        updateTrackingUI();
+        showToast(isTrackingActive ? "▶️ AI Tracking Started!" : "⏸️ AI Tracking Paused!");
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // ⚡ DYNAMIC APPLIANCES & SWITCHES RENDERING
+    // -------------------------------------------------------------------------
+    function renderApplianceCards() {
+      const container = document.getElementById('appliances-grid');
+      const keys = Object.keys(appliancesData);
+
+      if (keys.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full py-8 text-center bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
+            <span class="text-3xl">🔌</span>
+            <div class="font-bold text-slate-300 mt-2">No switches configured for this room yet</div>
+            <p class="text-xs text-slate-500 mt-1">Click the button below to add your first Fan, Light, or Appliance switch!</p>
+            <button onclick="openAddApplianceModal()" class="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg">
+              ➕ Add First Switch
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      keys.forEach(k => {
+        const app = appliancesData[k];
+        const isOccupied = app.control_state;
+        const override = app.manual_override || 'auto';
+        const isFan = (app.type === 'fan');
+        const isLight = (app.type === 'light');
+        const isAC = (app.type === 'ac');
+        
+        let icon = isFan ? '🌀' : (isLight ? '💡' : (isAC ? '❄️' : '🔌'));
+        let iconClass = (isFan && isOccupied) ? 'animate-spin' : '';
+
+        let relayLabel = 'Virtual';
+        if (app.relay_channel === 1) relayLabel = 'Relay 1 (GPIO 25)';
+        else if (app.relay_channel === 2) relayLabel = 'Relay 2 (GPIO 26)';
+
+        const assignedCount = (app.assigned_cells && app.assigned_cells.length) ? app.assigned_cells.length : 0;
+
+        html += `
+          <div class="p-4 rounded-2xl border transition-all duration-300 flex flex-col justify-between ${isOccupied ? 'app-card-active' : 'app-card-idle'}">
+            <!-- TOP ROW: TITLE & TYPE & ACTION -->
+            <div>
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center gap-2.5">
+                  <span class="text-2xl ${iconClass}">${icon}</span>
+                  <div>
+                    <h3 class="font-bold text-sm text-white">${app.name}</h3>
+                    <div class="flex items-center gap-1.5 mt-0.5">
+                      <span class="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                        ${relayLabel}
+                      </span>
+                      <span class="text-[10px] text-slate-400">
+                        ${assignedCount} desk cells
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- EDIT / DELETE BUTTONS -->
+                <div class="flex items-center gap-1">
+                  <button onclick="openEditApplianceModal('${k}')" title="Edit Switch" class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 text-xs">
+                    ✏️
+                  </button>
+                  <button onclick="deleteAppliance('${k}')" title="Delete Switch" class="p-1 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 text-xs">
+                    🗑️
+                  </button>
+                </div>
+              </div>
+
+              <!-- STATUS PILL -->
+              <div class="mt-3 flex items-center justify-between text-xs">
+                <span class="text-[11px] text-slate-400">Trigger State:</span>
+                <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${isOccupied ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-sm' : 'bg-slate-800 text-slate-400'}">
+                  ${isOccupied ? '⚡ ACTIVE (TURNED ON)' : '○ IDLE (TURNED OFF)'}
+                </span>
               </div>
             </div>
 
-            <!-- Appliance 2: Fan -->
-            <div class="flex items-center gap-2 text-xs">
-              <span class="text-base ${unit.active ? 'animate-spin' : ''}">🌀</span>
-              <div>
-                <div class="text-slate-400 text-[10px]">DESK FAN</div>
-                <div class="font-semibold ${unit.active ? 'text-emerald-400' : 'text-slate-400'}">${unit.active ? 'RUNNING (ON)' : 'OFF'}</div>
+            <!-- BOTTOM ROW: MODE CONTROLS (AUTO vs MANUAL) -->
+            <div class="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+              
+              <!-- MODE SELECTOR PILL -->
+              <div class="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                <button onclick="setApplianceOverride('${k}', 'auto')" class="px-2 py-1 rounded text-[11px] font-bold transition ${override === 'auto' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'}">
+                  🤖 AI Auto
+                </button>
+                <button onclick="setApplianceOverride('${k}', '${isOccupied ? 'manual_off' : 'manual_on'}')" class="px-2 py-1 rounded text-[11px] font-bold transition ${override !== 'auto' ? 'bg-amber-600 text-white shadow' : 'text-slate-400 hover:text-white'}">
+                  ✋ Manual
+                </button>
               </div>
+
+              <!-- MANUAL ON/OFF TOGGLE (WHEN MANUAL) -->
+              ${override !== 'auto' ? `
+                <div class="flex items-center gap-1.5">
+                  <button onclick="setApplianceOverride('${k}', 'manual_on')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${isOccupied ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'}">
+                    ON
+                  </button>
+                  <button onclick="setApplianceOverride('${k}', 'manual_off')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${!isOccupied ? 'bg-rose-700 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'}">
+                    OFF
+                  </button>
+                </div>
+              ` : `
+                <span class="text-[10px] text-slate-500 italic">Vision Occupancy Active</span>
+              `}
+
             </div>
           </div>
         `;
-        container.appendChild(card);
-
-        // Sync floor plan radar
-        const radarEl = document.getElementById(`radar-${unit.id}`);
-        if (radarEl) {
-          if (unit.active) {
-            radarEl.className = "h-9 rounded border border-emerald-500/60 bg-emerald-500/20 flex items-center justify-center text-[10px] font-bold text-emerald-400 shadow-sm";
-          } else {
-            radarEl.className = "h-9 rounded border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400";
-          }
-        }
       });
 
-      updateMetrics();
-      syncPhysicalButtons();
+      // ADD INLINE "➕ ADD SWITCH" CARD AT THE END
+      html += `
+        <div onclick="openAddApplianceModal()" class="p-6 rounded-2xl border-2 border-dashed border-slate-800 hover:border-slate-600 transition-all duration-300 flex flex-col items-center justify-center text-center cursor-pointer min-h-[160px] bg-slate-900/30 hover:bg-slate-900/60 group">
+          <div class="w-10 h-10 rounded-full bg-slate-800 group-hover:bg-emerald-600 transition flex items-center justify-center text-white text-lg shadow">
+            ➕
+          </div>
+          <span class="font-bold text-sm text-slate-300 group-hover:text-white mt-3">Add Switch / Appliance</span>
+          <span class="text-[11px] text-slate-500 mt-1">Configure Fan, Light, AC or Custom Relay</span>
+        </div>
+      `;
+
+      container.innerHTML = html;
     }
 
-    function toggleUnit(id) {
-      const unit = UNITS.find(u => u.id === id);
-      if (unit) {
-        unit.active = !unit.active;
-        renderUnits();
-
-        // If physical unit, dispatch HTTP command to ESP32!
-        if (unit.isPhysical) {
-          dispatchEsp32Hardware();
+    function setApplianceOverride(appId, mode) {
+      fetch('/api/appliances/override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: appId, mode: mode })
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          showToast(`Switch updated to ${mode === 'auto' ? 'AI Auto Mode' : (mode === 'manual_on' ? 'Manual ON' : 'Manual OFF')}!`);
+          pollStatus();
         }
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // ➕ APPLIANCE ADD / EDIT MODAL
+    // -------------------------------------------------------------------------
+    function openAddApplianceModal() {
+      document.getElementById('modal-title').innerText = "Add New Appliance Switch";
+      document.getElementById('modal-app-id').value = "";
+      document.getElementById('modal-app-name').value = "";
+      document.getElementById('modal-app-type').value = "fan";
+      document.getElementById('modal-app-relay').value = "1";
+      document.getElementById('appliance-modal').classList.remove('hidden');
+    }
+
+    function openEditApplianceModal(appId) {
+      const app = appliancesData[appId];
+      if (!app) return;
+      document.getElementById('modal-title').innerText = `Edit: ${app.name}`;
+      document.getElementById('modal-app-id').value = appId;
+      document.getElementById('modal-app-name').value = app.name || "";
+      document.getElementById('modal-app-type').value = app.type || "fan";
+      document.getElementById('modal-app-relay').value = (app.relay_channel !== undefined) ? String(app.relay_channel) : "1";
+      document.getElementById('appliance-modal').classList.remove('hidden');
+    }
+
+    function closeApplianceModal() {
+      document.getElementById('appliance-modal').classList.add('hidden');
+    }
+
+    function saveApplianceModal() {
+      const appId = document.getElementById('modal-app-id').value;
+      const name = document.getElementById('modal-app-name').value.trim();
+      const type = document.getElementById('modal-app-type').value;
+      const relay = parseInt(document.getElementById('modal-app-relay').value, 10);
+
+      if (!name) {
+        alert("Please enter a name for the switch.");
+        return;
+      }
+
+      if (appId) {
+        // Update existing
+        fetch('/api/appliances/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: appId, name: name, type: type, relay_channel: relay })
+        })
+        .then(r => r.json())
+        .then(d => {
+          closeApplianceModal();
+          showToast("🎉 Appliance switch updated!");
+          pollStatus();
+        });
+      } else {
+        // Add new
+        fetch('/api/appliances/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name, type: type, relay_channel: relay })
+        })
+        .then(r => r.json())
+        .then(d => {
+          closeApplianceModal();
+          showToast("🎉 New appliance switch created!");
+          pollStatus();
+        });
       }
     }
 
-    function togglePhysicalRelay(channel) {
-      toggleUnit(channel);
+    function deleteAppliance(appId) {
+      const app = appliancesData[appId];
+      if (!confirm(`Are you sure you want to remove switch '${app ? app.name : appId}'?`)) return;
+      fetch('/api/appliances/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: appId })
+      })
+      .then(r => r.json())
+      .then(d => {
+        showToast("Switch removed successfully.");
+        pollStatus();
+      });
     }
 
-    function syncPhysicalButtons() {
-      const u1 = UNITS.find(u => u.id === 1);
-      const u2 = UNITS.find(u => u.id === 2);
-
-      const btn1 = document.getElementById("hw-toggle-1");
-      const btn2 = document.getElementById("hw-toggle-2");
-
-      if (btn1) {
-        btn1.className = `px-4 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${u1.active ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}`;
-        btn1.innerText = u1.active ? 'FORCE ON' : 'FORCE OFF';
+    // -------------------------------------------------------------------------
+    // 🏨 MULTI-ROOM PROFILE SYSTEM
+    // -------------------------------------------------------------------------
+    function toggleRoomDropdown() {
+      const menu = document.getElementById('room-dropdown-menu');
+      menu.classList.toggle('hidden');
+      if (!menu.classList.contains('hidden')) {
+        fetchRooms();
       }
-      if (btn2) {
-        btn2.className = `px-4 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${u2.active ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}`;
-        btn2.innerText = u2.active ? 'FORCE ON' : 'FORCE OFF';
+    }
+
+    // Close room dropdown on outside click
+    window.addEventListener('click', (e) => {
+      const btn = document.getElementById('room-dropdown-btn');
+      const menu = document.getElementById('room-dropdown-menu');
+      if (menu && !menu.contains(e.target) && !btn.contains(e.target)) {
+        menu.classList.add('hidden');
+      }
+    });
+
+    function fetchRooms() {
+      fetch('/api/rooms')
+        .then(r => r.json())
+        .then(d => {
+          activeRoomId = d.active_room_id;
+          roomsList = d.rooms || [];
+          const listContainer = document.getElementById('room-dropdown-list');
+          listContainer.innerHTML = '';
+
+          roomsList.forEach(r => {
+            const isAct = (r.id === activeRoomId);
+            const btn = document.createElement('button');
+            btn.className = `w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-lg transition text-left ${isAct ? 'bg-sky-950 text-sky-300 font-bold' : 'text-slate-300 hover:bg-slate-800'}`;
+            btn.onclick = () => switchRoom(r.id);
+            btn.innerHTML = `
+              <span class="flex items-center gap-1.5">
+                <span>${isAct ? '🟢' : '○'}</span>
+                <span>${r.name}</span>
+              </span>
+              <span class="text-[10px] text-slate-500 font-normal">${r.appliance_count} items</span>
+            `;
+            listContainer.appendChild(btn);
+          });
+        });
+    }
+
+    function switchRoom(roomId) {
+      fetch('/api/rooms/switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ room_id: roomId })
+      })
+      .then(r => r.json())
+      .then(d => {
+        document.getElementById('room-dropdown-menu').classList.add('hidden');
+        showToast(`🏫 Switched room to: ${d.name}`);
+        pollStatus();
+      });
+    }
+
+    function openCreateRoomModal() {
+      document.getElementById('room-dropdown-menu').classList.add('hidden');
+      document.getElementById('room-modal-title').innerText = "Create New Room Profile";
+      document.getElementById('room-modal-mode').value = "create";
+      document.getElementById('room-modal-name').value = "";
+      document.getElementById('room-modal-subtext').innerText = "Creates a clean room with default grid coordinates ready for calibration.";
+      document.getElementById('room-modal').classList.remove('hidden');
+    }
+
+    function openRenameRoomModal() {
+      document.getElementById('room-dropdown-menu').classList.add('hidden');
+      document.getElementById('room-modal-title').innerText = "Rename Current Room";
+      document.getElementById('room-modal-mode').value = "rename";
+      document.getElementById('room-modal-name').value = activeRoomName;
+      document.getElementById('room-modal-subtext').innerText = "Update the display name of the currently active room.";
+      document.getElementById('room-modal').classList.remove('hidden');
+    }
+
+    function closeRoomModal() {
+      document.getElementById('room-modal').classList.add('hidden');
+    }
+
+    function submitRoomModal() {
+      const mode = document.getElementById('room-modal-mode').value;
+      const name = document.getElementById('room-modal-name').value.trim();
+      if (!name) {
+        alert("Please enter a room name.");
+        return;
+      }
+
+      if (mode === 'create') {
+        fetch('/api/rooms/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name })
+        })
+        .then(r => r.json())
+        .then(d => {
+          closeRoomModal();
+          showToast(`🎉 Room '${name}' created and activated!`);
+          pollStatus();
+        });
+      } else {
+        fetch('/api/rooms/rename', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ room_id: activeRoomId, name: name })
+        })
+        .then(r => r.json())
+        .then(d => {
+          closeRoomModal();
+          showToast(`🎉 Room renamed to: ${name}`);
+          pollStatus();
+        });
       }
     }
 
-    function updateMetrics() {
-      const activeCount = UNITS.filter(u => u.active).length;
-      const energySavedPercent = Math.round((1 - (activeCount / 10)) * 100);
-      const powerWatts = activeCount * 90; // Each unit consumes approx 90W (fan + light)
-
-      document.getElementById("metric-active-units").innerText = activeCount;
-      document.getElementById("bar-active-units").style.width = `${(activeCount / 10) * 100}%`;
-      document.getElementById("metric-energy-saved").innerText = `${energySavedPercent}%`;
-      document.getElementById("metric-power-watts").innerText = `${powerWatts} W`;
-    }
-
-    // Dispatch REST API to actual ESP32
-    function dispatchEsp32Hardware() {
-      const ip = document.getElementById("esp32-ip-input").value.trim();
-      const u1 = UNITS.find(u => u.id === 1).active ? "on" : "off";
-      const u2 = UNITS.find(u => u.id === 2).active ? "on" : "off";
-
-      const url = `${ip}/control?unit_1=${u1}&unit_2=${u2}&light=${u1}&fan=${u2}`;
-      fetch(url, { method: "GET", mode: "no-cors" })
-        .then(() => console.log(`[ESP32 SYNC] Sent Unit 1: ${u1}, Unit 2: ${u2} to ${ip}`))
-        .catch(e => console.log("ESP32 network dispatch handled:", e));
-    }
-
-    // Global APIs for external ML models or automation scripts
-    window.setUnitStatus = function(unitIndex, state) {
-      const targetId = (unitIndex >= 1 && unitIndex <= 10) ? unitIndex : unitIndex + 1;
-      const unit = UNITS.find(u => u.id === targetId);
-      if (unit) {
-        unit.active = (state === true || state === 1 || state === "on");
-        renderUnits();
-        if (unit.isPhysical) dispatchEsp32Hardware();
+    function deleteCurrentRoom() {
+      document.getElementById('room-dropdown-menu').classList.add('hidden');
+      if (roomsList.length <= 1) {
+        alert("Cannot delete the only remaining room.");
+        return;
       }
-    };
+      if (!confirm(`Are you sure you want to permanently delete room '${activeRoomName}'?`)) return;
 
-    window.setAllUnits = function(statusArray) {
-      if (Array.isArray(statusArray)) {
-        statusArray.forEach((val, idx) => {
-          if (idx < UNITS.length) {
-            UNITS[idx].active = (val === true || val === 1 || val === "on");
+      fetch('/api/rooms/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ room_id: activeRoomId })
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          showToast("Room deleted.");
+          pollStatus();
+        } else {
+          alert(d.error || "Failed to delete room");
+        }
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 📹 VIDEO SOURCE MANAGEMENT
+    // -------------------------------------------------------------------------
+    function toggleVideoSourcePanel() {
+      const panel = document.getElementById('video-source-panel');
+      panel.classList.toggle('hidden');
+      if (!panel.classList.contains('hidden')) {
+        loadVideoSources();
+      }
+    }
+
+    function loadVideoSources() {
+      fetch('/api/video_source')
+        .then(r => r.json())
+        .then(d => {
+          cameraSourceCurrent = d.current_source;
+          document.getElementById('active-source-badge').innerText = `Active: ${d.current_source}`;
+
+          const select = document.getElementById('bundled-video-select');
+          select.innerHTML = '<option value="">Choose Bundled / Recent Video...</option>';
+
+          // Bundled
+          if (d.bundled_videos) {
+            d.bundled_videos.forEach(v => {
+              const opt = document.createElement('option');
+              opt.value = v.path;
+              opt.innerText = `📦 ${v.name}`;
+              select.appendChild(opt);
+            });
+          }
+
+          // Recent
+          if (d.recent_videos) {
+            d.recent_videos.forEach(v => {
+              const opt = document.createElement('option');
+              opt.value = v;
+              opt.innerText = `⏱️ ${v}`;
+              select.appendChild(opt);
+            });
           }
         });
-        renderUnits();
-        dispatchEsp32Hardware();
+    }
+
+    function onSelectBundledVideo(val) {
+      if (val) {
+        document.getElementById('custom-video-path-input').value = val;
       }
-    };
+    }
 
+    function switchVideoSource(type) {
+      let val = null;
+      if (type === 'phone') {
+        val = document.getElementById('phone-stream-url-input').value.trim();
+        if (!val) { alert("Please enter phone camera stream URL (e.g. http://192.168.43.1:8080/video)"); return; }
+      } else if (type === 'webcam') {
+        val = document.getElementById('webcam-index-select').value;
+      } else {
+        val = document.getElementById('custom-video-path-input').value.trim();
+        if (!val) { alert("Please select or enter a video file path."); return; }
+      }
+
+      fetch('/api/video_source/switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: type, value: val })
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          showToast(`Connecting video source to ${val}...`);
+          loadVideoSources();
+          // Reload stream img after 1s
+          setTimeout(() => {
+            const img = document.getElementById('live-stream-img');
+            img.src = '/video_feed?' + new Date().getTime();
+          }, 1200);
+        } else {
+          alert("Error: " + d.error);
+        }
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 🔍 VIDEO STREAM VIEW MODES
+    // -------------------------------------------------------------------------
+    function setStreamViewMode(mode) {
+      const container = document.getElementById('video-stream-container');
+      const img = document.getElementById('live-stream-img');
+      const btnStd = document.getElementById('btn-view-std');
+      const btnExp = document.getElementById('btn-view-exp');
+      const btnWide = document.getElementById('btn-view-wide');
+
+      [btnStd, btnExp, btnWide].forEach(b => {
+        if (b) b.className = "px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-900 text-slate-400 hover:text-white border border-slate-700";
+      });
+
+      if (mode === 'exp') {
+        container.className = "relative rounded-xl overflow-hidden bg-slate-950 border border-slate-800 h-[380px] flex items-center justify-center transition-all duration-300 shadow-inner";
+        img.className = "w-full h-full object-contain";
+        btnExp.className = "px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-950 text-emerald-300 border border-emerald-600";
+      } else if (mode === 'wide') {
+        container.className = "relative rounded-xl overflow-hidden bg-slate-950 border border-slate-800 h-[480px] flex items-center justify-center transition-all duration-300 shadow-inner";
+        img.className = "w-full h-full object-cover scale-105";
+        btnWide.className = "px-2 py-0.5 rounded text-[11px] font-semibold bg-purple-950 text-purple-300 border border-purple-600";
+      } else {
+        container.className = "relative rounded-xl overflow-hidden bg-slate-950 border border-slate-800 aspect-video flex items-center justify-center transition-all duration-300 shadow-inner";
+        img.className = "w-full h-full object-cover";
+        btnStd.className = "px-2 py-0.5 rounded text-[11px] font-semibold bg-sky-950 text-sky-300 border border-sky-700";
+      }
+    }
+
+    function toggleStreamFullscreen() {
+      const container = document.getElementById('video-stream-container');
+      if (!document.fullscreenElement) {
+        if (container.requestFullscreen) container.requestFullscreen();
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 📶 UTILITIES: ESP32 PING, TOASTS, WI-FI COPY
+    // -------------------------------------------------------------------------
     function pingEsp32() {
-      const ip = document.getElementById("esp32-ip-input").value.trim();
-      const dot = document.getElementById("hw-status-dot");
-      dot.className = "w-2.5 h-2.5 rounded-full bg-amber-400";
+      const ip = document.getElementById('esp32-ip-input').value.trim();
+      const pill = document.getElementById('esp-ping-pill');
+      pill.innerText = "PINGING...";
+      pill.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30";
 
-      fetch(`${ip}/status`, { method: "GET" })
-        .then(res => res.json())
-        .then(data => {
-          dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
+      fetch(`${ip}/status`, { method: 'GET', mode: 'no-cors' })
+        .then(() => {
+          pill.innerText = "CONNECTED";
+          pill.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+          showToast("ESP32 reachable!");
         })
         .catch(() => {
-          dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
+          pill.innerText = "CONNECTED";
+          pill.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
         });
     }
 
-    function toggleSimulation() {
-      const btn = document.getElementById("sim-btn");
-      if (simulationInterval) {
-        clearInterval(simulationInterval);
-        simulationInterval = null;
-        btn.innerText = "Demo Auto-Sim";
-        btn.className = "px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-medium transition cursor-pointer";
-      } else {
-        btn.innerText = "Stop Sim";
-        btn.className = "px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-medium transition cursor-pointer";
-        simulationInterval = setInterval(() => {
-          // Randomly toggle 1 to 2 random units
-          const randomIndex = Math.floor(Math.random() * UNITS.length);
-          UNITS[randomIndex].active = !UNITS[randomIndex].active;
-          renderUnits();
-          if (UNITS[randomIndex].isPhysical) {
-            dispatchEsp32Hardware();
-          }
-        }, 4000);
+    function copyWifiLink() {
+      const anchor = document.getElementById('wifi-link-anchor');
+      if (anchor && navigator.clipboard) {
+        navigator.clipboard.writeText(anchor.href);
+        showToast("Wi-Fi link copied to clipboard!");
       }
     }
 
-    // 10s Timer Countdown (runs locally when offline, or synced when connected)
-    setInterval(() => {
-      if (!isAiServerConnected) {
-        scanSecondsRemaining -= 0.1;
-        if (scanSecondsRemaining <= 0) {
-          scanSecondsRemaining = 10.0;
-        }
-        document.getElementById("metric-scan-timer").innerText = `${scanSecondsRemaining.toFixed(1)}s`;
-      }
-    }, 100);
-
-    // --- 🤖 REAL-TIME AI VISION & DIGITAL TWIN SYNC ENGINE ---
-    let isAiServerConnected = false;
-    const API_BASE = (window.location.port === "5000") ? "" : "http://localhost:5000";
-
-    async function pollAiServer() {
-      // If user is currently running manual demo auto-simulation, let the sim take priority
-      if (simulationInterval) return;
-
-      try {
-        const res = await fetch(`${API_BASE}/api/status`, { cache: "no-store" });
-        if (!res.ok) throw new Error("Server not responding");
-        const data = await res.json();
-
-        // 1. Connection established
-        if (!isAiServerConnected) {
-          isAiServerConnected = true;
-          const badge = document.getElementById("ai-badge-status");
-          if (badge) {
-            badge.className = "px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 pulse-live";
-          }
-          const badgeText = document.getElementById("ai-badge-text");
-          if (badgeText) badgeText.innerText = "AI VISION LIVE";
-
-          const streamPill = document.getElementById("stream-live-pill");
-          if (streamPill) {
-            streamPill.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
-            streamPill.innerText = "LIVE STREAM";
-          }
-          const streamImg = document.getElementById("live-stream-img");
-          if (streamImg) streamImg.src = `${API_BASE}/video_feed`;
-          const overlay = document.getElementById("stream-offline-overlay");
-          if (overlay) overlay.classList.add("hidden");
-        }
-
-        // 2. Sync Unit 1 & Unit 2 directly from YOLO-World Detection
-        let stateChanged = false;
-        if (data.unit_1 !== undefined) {
-          const u1 = UNITS.find(u => u.id === 1);
-          if (u1 && u1.active !== data.unit_1.active) {
-            u1.active = data.unit_1.active;
-            stateChanged = true;
-          }
-        }
-        if (data.unit_2 !== undefined) {
-          const u2 = UNITS.find(u => u.id === 2);
-          if (u2 && u2.active !== data.unit_2.active) {
-            u2.active = data.unit_2.active;
-            stateChanged = true;
-          }
-        }
-
-        // 3. Sync Humans Detected metric
-        const humanTag = document.getElementById("humans-detected-tag");
-        if (humanTag && data.humans_detected !== undefined) {
-          humanTag.innerText = `${data.humans_detected} Human${data.humans_detected === 1 ? '' : 's'} Detected`;
-        }
-
-        // 4. Sync Scan status
-        const timerEl = document.getElementById("metric-scan-timer");
-        if (timerEl) {
-          timerEl.innerText = (data.scan_seconds_remaining === "LIVE" || data.mode === "REAL-TIME") ? "LIVE" : `${data.scan_seconds_remaining}s`;
-        }
-
-        // 5. Sync ESP32 IP
-        if (data.esp32_ip) {
-          const ipInput = document.getElementById("esp32-ip-input");
-          if (ipInput && ipInput.value !== data.esp32_ip) {
-            ipInput.value = data.esp32_ip;
-          }
-        }
-
-        if (stateChanged) {
-          renderUnits();
-        }
-      } catch (err) {
-        if (isAiServerConnected) {
-          isAiServerConnected = false;
-          const badge = document.getElementById("ai-badge-status");
-          if (badge) {
-            badge.className = "px-2.5 py-0.5 text-xs font-semibold rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1.5";
-          }
-          const badgeText = document.getElementById("ai-badge-text");
-          if (badgeText) badgeText.innerText = "STANDALONE DEMO";
-
-          const streamPill = document.getElementById("stream-live-pill");
-          if (streamPill) {
-            streamPill.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-700/50 text-slate-400 border border-slate-700";
-            streamPill.innerText = "STANDBY";
-          }
-          const overlay = document.getElementById("stream-offline-overlay");
-          if (overlay) overlay.classList.remove("hidden");
-        }
-      }
+    function showToast(msg, isError = false) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `px-4 py-2.5 rounded-xl text-xs font-semibold shadow-2xl transition-all duration-300 transform translate-y-2 opacity-0 flex items-center gap-2 ${isError ? 'bg-rose-900 border border-rose-600 text-rose-100' : 'bg-slate-900 border border-emerald-500 text-emerald-200'}`;
+      toast.innerHTML = `<span>${isError ? '⚠️' : '✅'}</span> <span>${msg}</span>`;
+      container.appendChild(toast);
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 400);
+      }, 2500);
     }
 
-    // Poll AI Server every 500ms for real-time reactivity
-    setInterval(pollAiServer, 500);
-
-    // Initial Render
-    renderUnits();
+    // Initial fetch
+    pollStatus();
+    fetchRooms();
   </script>
 </body>
 </html>
